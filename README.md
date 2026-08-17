@@ -4,6 +4,8 @@
 
 CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch 中保存的 Claude 和 Codex 供应商。它会向每个选中的供应商发送一次真实模型请求，并分别展示响应、耗时和错误信息。
 
+[下载最新 Windows 版本](https://github.com/fengqichang666/ccswitch-tester/releases/latest)
+
 ## Windows 客户端
 
 构建后的文件位于 `release/`：

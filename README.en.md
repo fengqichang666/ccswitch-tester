@@ -2,6 +2,8 @@
 
 Windows desktop client for running one real Claude or Codex request against selected providers stored in CC Switch.
 
+[Download the latest Windows release](https://github.com/fengqichang666/ccswitch-tester/releases/latest)
+
 ## Features
 
 - Reads `%USERPROFILE%\.cc-switch\cc-switch.db` without modifying it.
