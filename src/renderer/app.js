@@ -6,6 +6,7 @@ const app = {
   expanded: new Set(),
   pending: new Set(),
   runTotal: 0,
+  pendingDeletePromptId: '',
   running: false,
 };
 
@@ -91,7 +92,10 @@ function renderPrompts() {
   container.innerHTML = app.state.prompts.length ? app.state.prompts.map((prompt) => `<div class="prompt-item ${prompt.enabled ? '' : 'disabled'}">
     <input class="prompt-toggle" data-prompt-id="${escapeHtml(prompt.id)}" type="checkbox" ${prompt.enabled ? 'checked' : ''} aria-label="启用 ${escapeHtml(prompt.name)}" />
     <div class="prompt-copy"><strong>${escapeHtml(prompt.name)}</strong><p>${escapeHtml(prompt.text)}</p></div>
-    <div class="prompt-actions"><button class="text-button edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}" type="button">编辑</button><button class="text-button danger delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" type="button">删除</button></div>
+    <div class="prompt-actions">${app.pendingDeletePromptId === prompt.id
+      ? `<button class="text-button danger confirm-delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" type="button">确认删除</button><button class="text-button cancel-delete-prompt" type="button">取消</button>`
+      : `<button class="text-button edit-prompt" data-prompt-id="${escapeHtml(prompt.id)}" type="button">编辑</button><button class="text-button danger delete-prompt" data-prompt-id="${escapeHtml(prompt.id)}" type="button">删除</button>`}
+    </div>
   </div>`).join('') : '<div class="loading">还没有测试语句</div>';
 }
 
@@ -116,7 +120,7 @@ async function loadAll() {
 async function persistState() { app.state = await window.ccswitch.saveState(app.state); }
 
 function openPromptModal() { renderPrompts(); $('#prompt-modal').hidden = false; $('#prompt-name').focus(); }
-function closePromptModal() { $('#prompt-modal').hidden = true; resetPromptForm(); }
+function closePromptModal() { $('#prompt-modal').hidden = true; app.pendingDeletePromptId = ''; resetPromptForm(); }
 function resetPromptForm() { $('#prompt-id').value = ''; $('#prompt-name').value = ''; $('#prompt-text').value = ''; $('#cancel-prompt-button').style.visibility = 'hidden'; }
 
 function editPrompt(id) {
@@ -184,9 +188,26 @@ document.addEventListener('click', async (event) => {
   if (editButton) { editPrompt(editButton.dataset.promptId); return; }
   const deleteButton = event.target.closest('.delete-prompt');
   if (deleteButton) {
-    if (!window.confirm('删除这条测试语句？')) return;
-    app.state.prompts = app.state.prompts.filter((item) => item.id !== deleteButton.dataset.promptId);
-    await persistState(); renderPrompts(); return;
+    app.pendingDeletePromptId = deleteButton.dataset.promptId;
+    renderPrompts();
+    return;
+  }
+  const cancelDeleteButton = event.target.closest('.cancel-delete-prompt');
+  if (cancelDeleteButton) {
+    app.pendingDeletePromptId = '';
+    renderPrompts();
+    return;
+  }
+  const confirmDeleteButton = event.target.closest('.confirm-delete-prompt');
+  if (confirmDeleteButton) {
+    const id = confirmDeleteButton.dataset.promptId;
+    app.state.prompts = app.state.prompts.filter((item) => item.id !== id);
+    if ($('#prompt-id').value === id) resetPromptForm();
+    app.pendingDeletePromptId = '';
+    await persistState();
+    renderPrompts();
+    requestAnimationFrame(() => $('#prompt-name').focus());
+    return;
   }
 });
 

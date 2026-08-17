@@ -10,8 +10,8 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 
 构建后的文件位于 `release/`：
 
-- `CCSwitch-Tester-0.1.1-x64-portable.exe`：便携版，直接运行。
-- `CCSwitch-Tester-0.1.1-x64-setup.exe`：安装版，可选择安装目录。
+- `CCSwitch-Tester-0.1.2-x64-portable.exe`：便携版，直接运行。
+- `CCSwitch-Tester-0.1.2-x64-setup.exe`：安装版，可选择安装目录。
 
 程序启动后会自动读取当前 Windows 用户的 CC Switch 数据库：
 

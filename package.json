@@ -1,6 +1,6 @@
 {
   "name": "ccswitch-tester",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Windows desktop tester for Claude and Codex providers configured in CC Switch",
   "author": "gale",
   "homepage": "https://github.com/fengqichang666/ccswitch-tester",
@@ -14,7 +14,8 @@
     "start": "electron .",
     "dev": "electron .",
     "dist": "electron-builder --win nsis portable",
-    "test": "node --test"
+    "test": "node --test test/core.test.js test/request-client.test.js",
+    "test:electron": "electron test/prompt-focus.electron.js"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
