@@ -49,7 +49,10 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
   const claude = buildRequest({ group: 'claude', baseUrl: 'https://example.com/v1', key: 'a', keyKind: 'api-key' }, 'claude-opus-5', 'hello');
   assert.equal(claude.endpoint, 'https://example.com/v1/messages');
   assert.equal(claude.headers['x-api-key'], 'a');
-  assert.equal(claude.headers['user-agent'], 'CCSwitch-Tester');
+  assert.equal(claude.headers['user-agent'], 'claude-cli/2.1.227 (external, cli)');
+  assert.equal(claude.headers['x-app'], 'cli');
+  assert.equal(claude.headers['anthropic-client-platform'], 'claude_code_cli');
+  assert.match(claude.headers['x-claude-code-session-id'], /^[0-9a-f-]{36}$/i);
   assert.equal(claude.body.max_tokens, 64);
 
   const codex = buildRequest({ group: 'codex', protocol: 'openai-responses', baseUrl: 'https://example.com/v1', key: 'b' }, 'gpt-5.6-sol', 'hello');

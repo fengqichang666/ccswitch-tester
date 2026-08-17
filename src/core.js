@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 
 const CODEX_ORIGINATOR = 'codex_cli_rs';
 const CODEX_USER_AGENT = 'codex_cli_rs/0.148.0-alpha.9 (Windows 11 10.0; x86_64) Codex Desktop';
+const CLAUDE_CODE_USER_AGENT = 'claude-cli/2.1.227 (external, cli)';
 
 function parseJson(value, fallback = {}) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
@@ -134,8 +135,13 @@ function buildRequest(provider, model, prompt) {
   let endpoint;
   let body;
   if (provider.group === 'claude') {
+    const sessionId = crypto.randomUUID();
     endpoint = endpointFor(provider.baseUrl, '/messages');
     headers['anthropic-version'] = '2023-06-01';
+    headers['user-agent'] = CLAUDE_CODE_USER_AGENT;
+    headers['x-app'] = 'cli';
+    headers['anthropic-client-platform'] = 'claude_code_cli';
+    headers['x-claude-code-session-id'] = sessionId;
     if (provider.keyKind === 'api-key') headers['x-api-key'] = provider.key;
     else headers.authorization = `Bearer ${provider.key}`;
     body = { model, max_tokens: 64, messages: [{ role: 'user', content: prompt }] };

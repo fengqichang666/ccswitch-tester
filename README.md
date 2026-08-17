@@ -27,7 +27,7 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 - “测试选中项”只会测试当前 Claude/Codex 页面中勾选的供应商，不会跨页面混合测试。
 - 每一行提供独立“测试”按钮。
 - 按照 CC Switch 中记录的协议选择 Claude Messages、OpenAI Responses 或 Chat Completions 请求路径。
-- Codex Responses 请求会携带 Codex 客户端兼容请求头，以适配会校验客户端身份的中转供应商。
+- Claude Messages 和 Codex Responses 请求会携带对应客户端兼容请求头，以适配会校验客户端身份的中转供应商。
 - Claude 默认使用 `claude-opus-5`，Codex 默认使用 `gpt-5.6-sol`，每个供应商的模型均可单独修改。
 - 支持新增、编辑、启用、停用和删除测试语句。
 - 每个供应商请求前会从已启用的语句中随机选择一条。
