@@ -13,11 +13,16 @@ async function run() {
   await window.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'index.html'));
   await new Promise((resolve) => setTimeout(resolve, 300));
   const result = await window.webContents.executeJavaScript(`(async () => {
+    const search = document.querySelector('#provider-search');
+    search.value = 'claude.example';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    const filteredClaudeIds = [...document.querySelectorAll('.provider-check')].map((item) => item.dataset.providerId);
+    document.querySelector('#select-all').click();
     const claudeCheckbox = document.querySelector('.provider-check');
-    claudeCheckbox.click();
     document.querySelector('[data-group="codex"]').click();
     document.querySelector('.provider-check').click();
     document.querySelector('[data-group="claude"]').click();
+    const restoredClaudeQuery = document.querySelector('#provider-search').value;
     document.querySelector('#run-button').click();
     await new Promise((resolve) => setTimeout(resolve, 100));
     document.querySelector('.row-test-button').click();
@@ -42,10 +47,13 @@ async function run() {
       testRuns: await window.ccswitch.getTestRuns(),
       historyModalOpen,
       historyTitle,
+      filteredClaudeIds,
+      restoredClaudeQuery,
     };
   })()`);
   const currentTabOnly = result.testRuns.length === 2 && result.testRuns.every((ids) => ids.length === 1 && ids[0] === 'claude-1');
-  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1 || !currentTabOnly || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
+  const searchWorks = result.filteredClaudeIds.length === 1 && result.filteredClaudeIds[0] === 'claude-1' && result.restoredClaudeQuery === 'claude.example';
+  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1 || !currentTabOnly || !searchWorks || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
     throw new Error(`语句删除后的输入框回归失败：${JSON.stringify(result)}`);
   }
   console.log(JSON.stringify(result));

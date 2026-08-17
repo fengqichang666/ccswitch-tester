@@ -13,6 +13,7 @@ let state = {
 const testRuns = [];
 const providers = [
   { id: 'claude-1', appType: 'claude', group: 'claude', name: 'Claude 测试供应商', baseUrl: 'https://claude.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', keyHint: 'sk-a...test', hasKey: true, supported: true, unavailableReason: '' },
+  { id: 'claude-2', appType: 'claude', group: 'claude', name: '另一个 Claude', baseUrl: 'https://other.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', keyHint: 'sk-c...test', hasKey: true, supported: true, unavailableReason: '' },
   { id: 'codex-1', appType: 'codex', group: 'codex', name: 'Codex 测试供应商', baseUrl: 'https://codex.example/v1', model: 'gpt-5.6-sol', defaultModel: 'gpt-5.6-sol', configuredModel: '', protocol: 'openai-responses', keyHint: 'sk-b...test', hasKey: true, supported: true, unavailableReason: '' },
 ];
 

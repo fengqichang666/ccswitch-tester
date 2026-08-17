@@ -8,8 +8,10 @@ Windows desktop client for running one real Claude or Codex request against sele
 
 - Reads `%USERPROFILE%\.cc-switch\cc-switch.db` without modifying it.
 - Separate Claude and Codex provider lists.
+- Filters the active tab instantly by provider name or server URL, with separate queries for Claude and Codex.
 - Batch testing is limited to the currently visible Claude or Codex tab, and every row has its own test button.
 - Uses the request protocol recorded by CC Switch.
+- Adds Codex-compatible request headers for Responses providers that validate the calling client.
 - Defaults to `claude-opus-5` and `gpt-5.6-sol`; each row is editable.
 - Randomly selects one enabled prompt for each provider.
 - Sends one request per selected provider and never retries automatically.

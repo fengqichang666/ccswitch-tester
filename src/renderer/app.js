@@ -7,6 +7,7 @@ const app = {
   runTotal: 0,
   historyProviderId: '',
   pendingDeletePromptId: '',
+  searchQueries: { claude: '', codex: '' },
   running: false,
 };
 
@@ -22,12 +23,17 @@ function setNotice(message = '') {
 }
 
 function currentProviders() { return app.providers.filter((item) => item.group === app.group); }
+function visibleProviders() {
+  const query = app.searchQueries[app.group].trim().toLocaleLowerCase('zh-CN');
+  if (!query) return currentProviders();
+  return currentProviders().filter((item) => `${item.name || ''}\n${item.baseUrl || ''}`.toLocaleLowerCase('zh-CN').includes(query));
+}
 function historiesFor(id) { return app.state.histories?.[id] || []; }
 
 function renderCounts() {
   $('#claude-count').textContent = app.providers.filter((item) => item.group === 'claude').length;
   $('#codex-count').textContent = app.providers.filter((item) => item.group === 'codex').length;
-  const count = currentProviders().filter((item) => app.selected.has(item.id)).length;
+  const count = visibleProviders().filter((item) => app.selected.has(item.id)).length;
   const completed = app.running ? app.runTotal - app.pending.size : 0;
   $('#selection-count').textContent = app.running ? `进度 ${completed}/${app.runTotal}` : count ? `已选择 ${count} 个供应商` : '未选择供应商';
   $('#run-button').disabled = app.running || count === 0;
@@ -35,12 +41,13 @@ function renderCounts() {
   $('#refresh-button').disabled = app.running;
   $('#prompt-button').disabled = app.running;
   document.querySelectorAll('.tab').forEach((item) => { item.disabled = app.running; });
-  const visibleSupported = currentProviders().filter((item) => item.supported);
+  const visibleSupported = visibleProviders().filter((item) => item.supported);
   const selectedVisible = visibleSupported.filter((item) => app.selected.has(item.id)).length;
   const selectAll = $('#select-all');
   selectAll.checked = visibleSupported.length > 0 && selectedVisible === visibleSupported.length;
   selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleSupported.length;
   selectAll.disabled = app.running || visibleSupported.length === 0;
+  $('#provider-search').disabled = app.running;
 }
 
 function renderHistoryItems(provider) {
@@ -99,8 +106,10 @@ function renderProviderCard(provider) {
 
 function renderProviders() {
   const container = $('#provider-list');
-  const visible = currentProviders();
-  if (!visible.length) container.innerHTML = $('#empty-template').innerHTML;
+  const visible = visibleProviders();
+  $('#provider-search').value = app.searchQueries[app.group];
+  if (!visible.length && app.searchQueries[app.group].trim()) container.innerHTML = '<div class="empty-state"><div class="empty-icon">⌕</div><h3>没有匹配的供应商</h3><p>请尝试其他供应商名称或 Server URL。</p></div>';
+  else if (!visible.length) container.innerHTML = $('#empty-template').innerHTML;
   else container.innerHTML = visible.map(renderProviderCard).join('');
   renderCounts();
 }
@@ -196,7 +205,7 @@ async function runProviderIds(requestedIds) {
 }
 
 async function runSelected() {
-  const ids = currentProviders().filter((item) => item.supported && app.selected.has(item.id)).map((item) => item.id);
+  const ids = visibleProviders().filter((item) => item.supported && app.selected.has(item.id)).map((item) => item.id);
   await runProviderIds(ids);
 }
 
@@ -247,7 +256,7 @@ document.addEventListener('change', async (event) => {
     renderCounts();
   }
   if (event.target.matches('#select-all')) {
-    currentProviders().filter((item) => item.supported).forEach((item) => {
+    visibleProviders().filter((item) => item.supported).forEach((item) => {
       if (event.target.checked) app.selected.add(item.id);
       else app.selected.delete(item.id);
     });
@@ -260,6 +269,12 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('input', async (event) => {
+  if (event.target.matches('#provider-search')) {
+    app.searchQueries[app.group] = event.target.value;
+    renderProviders();
+    $('#provider-search').focus();
+    return;
+  }
   if (!event.target.matches('.model-field')) return;
   const id = event.target.dataset.modelId;
   app.state.modelOverrides[id] = event.target.value.trim();

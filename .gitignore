@@ -3,3 +3,4 @@ dist/
 release/
 *.png
 *.log
+.tmp-user-data*/

@@ -1,4 +1,8 @@
 const TOML = require('@iarna/toml');
+const crypto = require('node:crypto');
+
+const CODEX_ORIGINATOR = 'codex_cli_rs';
+const CODEX_USER_AGENT = 'codex_cli_rs/0.148.0-alpha.9 (Windows 11 10.0; x86_64) Codex Desktop';
 
 function parseJson(value, fallback = {}) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
@@ -140,8 +144,14 @@ function buildRequest(provider, model, prompt) {
     headers.authorization = `Bearer ${provider.key}`;
     body = { model, max_tokens: 64, stream: false, messages: [{ role: 'user', content: prompt }] };
   } else {
+    const requestId = crypto.randomUUID();
     endpoint = endpointFor(provider.baseUrl, '/responses');
     headers.authorization = `Bearer ${provider.key}`;
+    headers['user-agent'] = CODEX_USER_AGENT;
+    headers.originator = CODEX_ORIGINATOR;
+    headers['session-id'] = requestId;
+    headers['thread-id'] = requestId;
+    headers['x-client-request-id'] = requestId;
     body = { model, max_output_tokens: 64, store: false, input: prompt };
   }
   return { endpoint, headers, body };

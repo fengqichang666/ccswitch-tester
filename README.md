@@ -10,8 +10,8 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 
 构建后的文件位于 `release/`：
 
-- `CCSwitch-Tester-0.2.0-x64-portable.exe`：便携版，直接运行。
-- `CCSwitch-Tester-0.2.0-x64-setup.exe`：安装版，可选择安装目录。
+- `CCSwitch-Tester-0.3.0-x64-portable.exe`：便携版，直接运行。
+- `CCSwitch-Tester-0.3.0-x64-setup.exe`：安装版，可选择安装目录。
 
 程序启动后会自动读取当前 Windows 用户的 CC Switch 数据库：
 
@@ -22,10 +22,12 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 ## 功能
 
 - Claude 和 Codex 使用独立列表展示。
-- 支持逐项勾选或全选当前页面的供应商。
+- 支持按供应商名称或 Server URL 即时搜索，Claude 和 Codex 分别保留自己的搜索条件。
+- 支持逐项勾选或全选当前搜索结果中的供应商。
 - “测试选中项”只会测试当前 Claude/Codex 页面中勾选的供应商，不会跨页面混合测试。
 - 每一行提供独立“测试”按钮。
 - 按照 CC Switch 中记录的协议选择 Claude Messages、OpenAI Responses 或 Chat Completions 请求路径。
+- Codex Responses 请求会携带 Codex 客户端兼容请求头，以适配会校验客户端身份的中转供应商。
 - Claude 默认使用 `claude-opus-5`，Codex 默认使用 `gpt-5.6-sol`，每个供应商的模型均可单独修改。
 - 支持新增、编辑、启用、停用和删除测试语句。
 - 每个供应商请求前会从已启用的语句中随机选择一条。
@@ -40,11 +42,11 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 ## 使用方法
 
 1. 启动 CC Switch，并确保待测试的供应商已经配置 API Key 和服务地址。
-2. 运行 CCSwitch Tester，在 Claude 或 Codex 页面选择供应商。
+2. 运行 CCSwitch Tester，在 Claude 或 Codex 页面搜索并选择供应商。
 3. 根据需要修改每行使用的模型。
 4. 在“语句管理”中维护随机测试语句，并至少启用一条。
 5. 点击“测试选中项”。
-6. 点击每行右侧的展开按钮，查看该供应商最近 10 次结果。
+6. 点击每行右侧的“历史”按钮，查看该供应商最近 10 次结果。
 
 测试会产生真实 API 请求，可能消耗供应商额度。程序不会自动重试；需要重测时请重新选择并运行。
 

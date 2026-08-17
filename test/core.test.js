@@ -55,6 +55,10 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
   const codex = buildRequest({ group: 'codex', protocol: 'openai-responses', baseUrl: 'https://example.com/v1', key: 'b' }, 'gpt-5.6-sol', 'hello');
   assert.equal(codex.endpoint, 'https://example.com/v1/responses');
   assert.equal(codex.headers.authorization, 'Bearer b');
+  assert.match(codex.headers['user-agent'], /^codex_cli_rs\//);
+  assert.equal(codex.headers.originator, 'codex_cli_rs');
+  assert.equal(codex.headers['session-id'], codex.headers['thread-id']);
+  assert.equal(codex.headers['thread-id'], codex.headers['x-client-request-id']);
   assert.equal(codex.body.max_output_tokens, 64);
 });
 

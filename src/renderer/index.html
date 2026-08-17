@@ -40,7 +40,13 @@
             <button class="tab active" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
             <button class="tab" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
           </nav>
-          <label class="select-all"><input id="select-all" type="checkbox" />选择当前页</label>
+          <div class="list-tools">
+            <label class="provider-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="provider-search" type="search" placeholder="按名称或 Server URL 搜索" autocomplete="off" />
+            </label>
+            <label class="select-all"><input id="select-all" type="checkbox" />选择当前结果</label>
+          </div>
         </div>
 
         <section class="notice" id="page-notice" hidden></section>
