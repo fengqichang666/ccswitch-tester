@@ -13,6 +13,19 @@ async function run() {
   await window.loadFile(path.join(__dirname, '..', 'src', 'renderer', 'index.html'));
   await new Promise((resolve) => setTimeout(resolve, 300));
   const result = await window.webContents.executeJavaScript(`(async () => {
+    const claudeCheckbox = document.querySelector('.provider-check');
+    claudeCheckbox.click();
+    document.querySelector('[data-group="codex"]').click();
+    document.querySelector('.provider-check').click();
+    document.querySelector('[data-group="claude"]').click();
+    document.querySelector('#run-button').click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    document.querySelector('.row-test-button').click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    document.querySelector('.history-button').click();
+    const historyModalOpen = !document.querySelector('#history-modal').hidden;
+    const historyTitle = document.querySelector('#history-title').textContent;
+    document.querySelector('#close-history-button').click();
     document.querySelector('#prompt-button').click();
     document.querySelector('.delete-prompt').click();
     document.querySelector('.confirm-delete-prompt').click();
@@ -26,9 +39,13 @@ async function run() {
       focused: document.activeElement === input,
       value: input.value,
       promptsRemaining: document.querySelectorAll('.prompt-item').length,
+      testRuns: await window.ccswitch.getTestRuns(),
+      historyModalOpen,
+      historyTitle,
     };
   })()`);
-  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1) {
+  const currentTabOnly = result.testRuns.length === 2 && result.testRuns.every((ids) => ids.length === 1 && ids[0] === 'claude-1');
+  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1 || !currentTabOnly || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
     throw new Error(`语句删除后的输入框回归失败：${JSON.stringify(result)}`);
   }
   console.log(JSON.stringify(result));

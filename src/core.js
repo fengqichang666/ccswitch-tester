@@ -83,10 +83,35 @@ function classifyError(error, status) {
   if (status === 408 || status === 429) return '超时或触发限流';
   if (status >= 500) return '供应商服务端错误';
   if (error?.name === 'AbortError') return '请求超时';
-  if (error?.cause?.code === 'ENOTFOUND' || error?.code === 'ENOTFOUND') return 'DNS 解析失败';
-  if (error?.cause?.code === 'ECONNREFUSED' || error?.code === 'ECONNREFUSED') return '连接被拒绝';
+  const code = error?.cause?.code || error?.code || '';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return 'DNS 解析失败';
+  if (code === 'ECONNREFUSED') return '连接被拒绝';
+  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET') return '连接被远端重置';
+  if (code === 'ETIMEDOUT' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'UND_ERR_HEADERS_TIMEOUT') return '连接超时';
+  if (code === 'EHOSTUNREACH' || code === 'ENETUNREACH') return '网络不可达';
+  if (/CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(code)) return 'TLS 证书错误';
   if (error?.message) return '网络请求失败';
   return '请求失败';
+}
+
+function networkErrorDetails(error) {
+  const cause = error?.cause;
+  const code = cause?.code || error?.code || '';
+  const outerMessage = String(error?.message || '').trim();
+  const causeMessage = String(cause?.message || '').trim();
+  const details = [];
+  if (code) details.push(code);
+  if (causeMessage && causeMessage !== outerMessage) details.push(causeMessage);
+  if (outerMessage && outerMessage !== 'fetch failed') details.push(outerMessage);
+  return details.length ? [...new Set(details)].join('：') : 'fetch failed（未返回更具体的底层原因）';
+}
+
+function proxyUrlFromRule(rule) {
+  for (const part of String(rule || '').split(';').map((item) => item.trim())) {
+    const match = part.match(/^(?:PROXY|HTTPS?|HTTP)\s+(.+)$/i);
+    if (match) return `http://${match[1]}`;
+  }
+  return '';
 }
 
 function responseText(payload) {
@@ -101,7 +126,7 @@ function responseText(payload) {
 }
 
 function buildRequest(provider, model, prompt) {
-  const headers = { 'content-type': 'application/json' };
+  const headers = { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'CCSwitch-Tester' };
   let endpoint;
   let body;
   if (provider.group === 'claude') {
@@ -128,8 +153,10 @@ module.exports = {
   defaultModel,
   endpointFor,
   maskKey,
+  networkErrorDetails,
   parseClaude,
   parseCodex,
   parseJson,
+  proxyUrlFromRule,
   responseText,
 };

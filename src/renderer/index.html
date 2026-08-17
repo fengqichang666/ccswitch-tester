@@ -69,6 +69,20 @@
         </section>
       </div>
 
+      <div id="history-modal" class="modal-backdrop" hidden>
+        <section class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="history-title">
+          <div class="modal-header">
+            <div>
+              <p class="eyebrow">测试历史</p>
+              <h2 id="history-title">供应商</h2>
+              <p id="history-subtitle" class="modal-subtitle"></p>
+            </div>
+            <button id="close-history-button" class="icon-button" type="button" title="关闭">×</button>
+          </div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+      </div>
+
       <template id="empty-template">
         <div class="empty-state">
           <div class="empty-icon">—</div>

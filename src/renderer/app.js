@@ -3,9 +3,9 @@ const app = {
   state: { prompts: [], histories: {}, modelOverrides: {} },
   group: 'claude',
   selected: new Set(),
-  expanded: new Set(),
   pending: new Set(),
   runTotal: 0,
+  historyProviderId: '',
   pendingDeletePromptId: '',
   running: false,
 };
@@ -27,13 +27,14 @@ function historiesFor(id) { return app.state.histories?.[id] || []; }
 function renderCounts() {
   $('#claude-count').textContent = app.providers.filter((item) => item.group === 'claude').length;
   $('#codex-count').textContent = app.providers.filter((item) => item.group === 'codex').length;
-  const count = app.selected.size;
+  const count = currentProviders().filter((item) => app.selected.has(item.id)).length;
   const completed = app.running ? app.runTotal - app.pending.size : 0;
   $('#selection-count').textContent = app.running ? `进度 ${completed}/${app.runTotal}` : count ? `已选择 ${count} 个供应商` : '未选择供应商';
   $('#run-button').disabled = app.running || count === 0;
   $('#run-button').textContent = app.running ? '⏳ 测试进行中' : '▶ 测试选中项';
   $('#refresh-button').disabled = app.running;
   $('#prompt-button').disabled = app.running;
+  document.querySelectorAll('.tab').forEach((item) => { item.disabled = app.running; });
   const visibleSupported = currentProviders().filter((item) => item.supported);
   const selectedVisible = visibleSupported.filter((item) => app.selected.has(item.id)).length;
   const selectAll = $('#select-all');
@@ -42,17 +43,35 @@ function renderCounts() {
   selectAll.disabled = app.running || visibleSupported.length === 0;
 }
 
-function renderHistory(provider) {
+function renderHistoryItems(provider) {
   const history = historiesFor(provider.id);
-  if (!app.expanded.has(provider.id)) return '';
-  if (!history.length) return '<div class="history"><div class="history-grid"><div class="loading">暂无测试记录</div></div></div>';
-  return `<div class="history"><div class="history-grid">${history.map((item) => `
+  if (!history.length) return '<div class="loading">暂无测试记录</div>';
+  return `<div class="history-grid">${history.map((item) => `
     <article class="history-item">
       <div class="history-meta"><span>${escapeHtml(formatTime(item.testedAt))}</span><span>${escapeHtml(item.model)} · ${escapeHtml(formatDuration(item.elapsedMs))}</span></div>
       <div class="history-meta"><span class="${item.ok ? 'status ok' : 'status error'}">${item.ok ? '成功' : '失败'}</span><span>HTTP ${item.status || '—'}</span></div>
-      <div class="history-meta"><span>语句：${escapeHtml(item.promptName || '未命名')}</span></div>
+      <div class="history-meta"><span>语句：${escapeHtml(item.promptName || '未命名')}</span><span>${escapeHtml(item.networkPath || '未记录网络路径')}</span></div>
       ${item.ok ? `<div class="history-answer">${escapeHtml(item.response || '供应商返回成功，但没有可展示的文本')}</div>` : `<div class="history-error">${escapeHtml(item.errorCategory || '请求失败')}：${escapeHtml(item.error || '没有错误详情')}</div>`}
-    </article>`).join('')}</div></div>`;
+    </article>`).join('')}</div>`;
+}
+
+function renderHistoryModal() {
+  const provider = app.providers.find((item) => item.id === app.historyProviderId);
+  if (!provider) return;
+  $('#history-title').textContent = provider.name;
+  $('#history-subtitle').textContent = `${provider.baseUrl || '未配置地址'} · 最近 ${historiesFor(provider.id).length} 条`;
+  $('#history-list').innerHTML = renderHistoryItems(provider);
+}
+
+function openHistoryModal(id) {
+  app.historyProviderId = id;
+  renderHistoryModal();
+  $('#history-modal').hidden = false;
+}
+
+function closeHistoryModal() {
+  $('#history-modal').hidden = true;
+  app.historyProviderId = '';
 }
 
 function renderProviderCard(provider) {
@@ -73,9 +92,8 @@ function renderProviderCard(provider) {
       <div class="endpoint"><code title="${escapeHtml(provider.baseUrl || '未配置')}">${escapeHtml(provider.baseUrl || '未配置')}</code><div class="protocol-label">${escapeHtml(provider.protocol)}${provider.unavailableReason ? ` · ${escapeHtml(provider.unavailableReason)}` : ''}</div></div>
       <input class="model-field" data-model-id="${escapeHtml(provider.id)}" value="${escapeHtml(provider.model)}" aria-label="${escapeHtml(provider.name)} 的模型" ${disabled || app.running ? 'disabled' : ''} />
       <div class="key-hint ${provider.hasKey ? '' : 'missing'}">${provider.hasKey ? `key ${escapeHtml(provider.keyHint)}` : '未找到 key'}</div>
-      <div class="row-actions"><span class="status ${status}">${statusText}</span><button class="icon-button history-button" data-history-id="${escapeHtml(provider.id)}" type="button" title="查看最近 10 次记录">${app.expanded.has(provider.id) ? '⌃' : '⌄'}</button></div>
+      <div class="row-actions"><span class="status ${status}">${statusText}</span><button class="button compact primary row-test-button" data-test-id="${escapeHtml(provider.id)}" type="button" ${disabled || app.running ? 'disabled' : ''}>测试</button><button class="button compact secondary history-button" data-history-id="${escapeHtml(provider.id)}" type="button">历史 ${history.length}</button></div>
     </div>
-    ${renderHistory(provider)}
   </article>`;
 }
 
@@ -110,6 +128,7 @@ async function loadAll() {
     setNotice('');
     refreshSyncLabel();
     renderProviders();
+    if (app.historyProviderId) renderHistoryModal();
   } catch (error) {
     app.providers = [];
     renderProviders();
@@ -147,8 +166,9 @@ async function handlePromptSubmit(event) {
   resetPromptForm();
 }
 
-async function runSelected() {
-  const ids = [...app.selected];
+async function runProviderIds(requestedIds) {
+  const current = new Map(currentProviders().filter((item) => item.supported).map((item) => [item.id, item]));
+  const ids = requestedIds.filter((id) => current.has(id));
   if (!ids.length || app.running) return;
   if (!app.state.prompts.some((item) => item.enabled && item.text.trim())) {
     setNotice('请先在“语句管理”中启用至少一条测试语句。');
@@ -171,19 +191,28 @@ async function runSelected() {
     app.pending.clear();
     app.runTotal = 0;
     renderProviders();
+    if (app.historyProviderId) renderHistoryModal();
   }
+}
+
+async function runSelected() {
+  const ids = currentProviders().filter((item) => item.supported && app.selected.has(item.id)).map((item) => item.id);
+  await runProviderIds(ids);
 }
 
 document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
-  if (tab) { app.group = tab.dataset.group; document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab)); renderProviders(); return; }
+  if (tab) { if (app.running) return; app.group = tab.dataset.group; document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab)); renderProviders(); return; }
   if (event.target.closest('#refresh-button')) { await loadAll(); return; }
   if (event.target.closest('#prompt-button')) { openPromptModal(); return; }
   if (event.target.closest('#close-prompt-button')) { closePromptModal(); return; }
+  if (event.target.closest('#close-history-button')) { closeHistoryModal(); return; }
   if (event.target.closest('#cancel-prompt-button')) { resetPromptForm(); return; }
   if (event.target.closest('#run-button')) { await runSelected(); return; }
+  const rowTestButton = event.target.closest('.row-test-button');
+  if (rowTestButton) { await runProviderIds([rowTestButton.dataset.testId]); return; }
   const historyButton = event.target.closest('.history-button');
-  if (historyButton) { const id = historyButton.dataset.historyId; app.expanded.has(id) ? app.expanded.delete(id) : app.expanded.add(id); renderProviders(); return; }
+  if (historyButton) { openHistoryModal(historyButton.dataset.historyId); return; }
   const editButton = event.target.closest('.edit-prompt');
   if (editButton) { editPrompt(editButton.dataset.promptId); return; }
   const deleteButton = event.target.closest('.delete-prompt');
@@ -246,7 +275,12 @@ window.ccswitch.onTestProgress((result) => {
   const existing = app.state.histories[result.providerId] || [];
   app.state.histories[result.providerId] = [result, ...existing.filter((item) => item.id !== result.id)].slice(0, 10);
   app.pending.delete(result.providerId);
-  app.expanded.add(result.providerId);
   renderProviders();
+  if (app.historyProviderId === result.providerId) renderHistoryModal();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape') return;
+  if (!$('#history-modal').hidden) closeHistoryModal();
+  else if (!$('#prompt-modal').hidden) closePromptModal();
 });
 loadAll();

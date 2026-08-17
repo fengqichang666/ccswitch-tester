@@ -43,3 +43,15 @@ test('keeps provider error details without retrying', async () => {
   });
   assert.equal(requestCount, 1);
 });
+
+test('returns the underlying connection error and network path', async () => {
+  const server = http.createServer();
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  await new Promise((resolve) => server.close(resolve));
+  const result = await requestProvider({ group: 'codex', protocol: 'openai-responses', baseUrl: `http://127.0.0.1:${port}/v1`, key: 'secret' }, 'gpt-5.6-sol', '你好', { timeoutMs: 2000, proxyLabel: '直连' });
+  assert.equal(result.ok, false);
+  assert.equal(result.errorCategory, '连接被拒绝');
+  assert.match(result.error, /ECONNREFUSED/);
+  assert.match(result.error, /网络路径：直连/);
+});

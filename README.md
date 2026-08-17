@@ -10,8 +10,8 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 
 构建后的文件位于 `release/`：
 
-- `CCSwitch-Tester-0.1.2-x64-portable.exe`：便携版，直接运行。
-- `CCSwitch-Tester-0.1.2-x64-setup.exe`：安装版，可选择安装目录。
+- `CCSwitch-Tester-0.2.0-x64-portable.exe`：便携版，直接运行。
+- `CCSwitch-Tester-0.2.0-x64-setup.exe`：安装版，可选择安装目录。
 
 程序启动后会自动读取当前 Windows 用户的 CC Switch 数据库：
 
@@ -23,15 +23,19 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 
 - Claude 和 Codex 使用独立列表展示。
 - 支持逐项勾选或全选当前页面的供应商。
+- “测试选中项”只会测试当前 Claude/Codex 页面中勾选的供应商，不会跨页面混合测试。
+- 每一行提供独立“测试”按钮。
 - 按照 CC Switch 中记录的协议选择 Claude Messages、OpenAI Responses 或 Chat Completions 请求路径。
 - Claude 默认使用 `claude-opus-5`，Codex 默认使用 `gpt-5.6-sol`，每个供应商的模型均可单独修改。
 - 支持新增、编辑、启用、停用和删除测试语句。
 - 每个供应商请求前会从已启用的语句中随机选择一条。
 - 每个选中的供应商只发送一次请求，不会自动重试。
 - 单个供应商失败不会中断其他供应商的测试。
-- 每个供应商独立保留最近 10 次测试记录。
+- 每个供应商独立保留最近 10 次测试记录，并通过历史弹窗查看。
 - 记录测试时间、模型、语句、HTTP 状态码、耗时、回答摘要或错误详情。
 - 启动时读取 CC Switch 配置，也可以在界面中手动刷新。
+- 关闭主窗口时程序会缩小到 Windows 系统托盘；通过托盘菜单可以重新打开或彻底退出。
+- 网络错误会显示 DNS、连接超时、连接重置、TLS 证书、代理等底层原因及本次使用的网络路径。
 
 ## 使用方法
 
@@ -43,6 +47,8 @@ CCSwitch Tester 是一个 Windows 桌面客户端，用于批量测试 CC Switch
 6. 点击每行右侧的展开按钮，查看该供应商最近 10 次结果。
 
 测试会产生真实 API 请求，可能消耗供应商额度。程序不会自动重试；需要重测时请重新选择并运行。
+
+`fetch failed` 本身不能说明网站一定限制访问。常见原因包括 DNS 失败、TLS 证书异常、目标站主动重置连接、区域或防火墙限制、代理不可用以及连接超时。新版会在错误详情中显示底层错误码，并标注请求使用的是 CCSwitch 代理、环境代理、Windows 系统代理还是直连。
 
 ## 数据与安全
 

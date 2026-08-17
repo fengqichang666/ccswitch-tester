@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, nativeImage, session, Tray } = require('electron');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
@@ -6,13 +6,17 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const initSqlJs = require('sql.js');
 const {
+  buildRequest,
   defaultModel,
   maskKey,
   parseClaude,
   parseCodex,
   parseJson,
+  proxyUrlFromRule,
 } = require('./core');
 const { requestProvider } = require('./request-client');
+
+if (process.env.CCSWITCH_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.CCSWITCH_TEST_USER_DATA));
 
 const DEFAULT_PROMPTS = [
   { id: 'intro', name: '自我介绍', text: '你好，请用两三句话介绍你能帮我做什么，并给出一个具体例子。', enabled: true },
@@ -21,9 +25,11 @@ const DEFAULT_PROMPTS = [
 ];
 
 let mainWindow;
+let tray;
 let sqlJs;
 let statePath;
 let running = false;
+let isQuitting = false;
 let stateWriteQueue = Promise.resolve();
 
 function ccswitchDbPath() {
@@ -63,16 +69,23 @@ async function saveState(next) {
   return clean;
 }
 
-async function getProxyUrl(appType) {
+async function getProxyConfig(appType, targetUrl) {
   const dbPath = ccswitchDbPath();
   let db;
   try {
     db = await readDatabase(dbPath);
     const row = db.exec(`SELECT app_type, proxy_enabled, enabled, listen_address, listen_port FROM proxy_config WHERE app_type = '${appType}'`)[0]?.values?.[0];
-    if (row && Number(row[1]) === 1 && Number(row[2]) === 1) return `http://${row[3]}:${row[4]}`;
+    if (row && Number(row[1]) === 1 && Number(row[2]) === 1) return { proxyUrl: `http://${row[3]}:${row[4]}`, label: 'CCSwitch 代理' };
   } catch { /* Fall back to environment proxies. */ }
   finally { db?.close(); }
-  return process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || '';
+  const envProxy = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || '';
+  if (envProxy) return { proxyUrl: envProxy, label: '环境代理' };
+  try {
+    const rule = await session.defaultSession.resolveProxy(targetUrl);
+    const systemProxy = proxyUrlFromRule(rule);
+    if (systemProxy) return { proxyUrl: systemProxy, label: 'Windows 系统代理' };
+  } catch { /* Fall back to a direct connection. */ }
+  return { proxyUrl: '', label: '直连' };
 }
 
 async function readDatabase(dbPath) {
@@ -136,8 +149,9 @@ async function runTests(providerIds) {
         try {
           provider = await getProviderSecrets(providerId);
           const model = state.modelOverrides[provider.id] || defaultModel(provider.group);
-          const proxyUrl = await getProxyUrl(provider.group);
-          result = await requestProvider(provider, model, prompt.text, { proxyUrl });
+          const endpoint = buildRequest(provider, model, prompt.text).endpoint;
+          const proxy = await getProxyConfig(provider.group, endpoint);
+          result = await requestProvider(provider, model, prompt.text, { proxyUrl: proxy.proxyUrl, proxyLabel: proxy.label });
           result.model = model;
         } catch (error) {
           provider = provider || { id: providerId, name: providerId, group: 'unknown' };
@@ -170,6 +184,28 @@ function setupIpc() {
   ipcMain.handle('show-error', (_event, message) => dialog.showErrorBox('CCSwitch Tester', String(message)));
 }
 
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  mainWindow.show();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (tray) return;
+  const iconPath = path.join(__dirname, '..', 'assets', 'icon.png');
+  const image = nativeImage.createFromPath(iconPath).resize({ width: 24, height: 24 });
+  tray = new Tray(image);
+  tray.setToolTip('CCSwitch 供应商测试器');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '打开主窗口', click: showMainWindow },
+    { type: 'separator' },
+    { label: '退出应用', click: () => { isQuitting = true; app.quit(); } },
+  ]));
+  tray.on('double-click', showMainWindow);
+  tray.on('click', showMainWindow);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -177,8 +213,15 @@ function createWindow() {
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: '#f5f7fb',
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    mainWindow.hide();
+  });
+  mainWindow.on('closed', () => { mainWindow = null; });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   if (process.env.CCSWITCH_TEST_SCREENSHOT) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -187,21 +230,42 @@ function createWindow() {
           await mainWindow.webContents.executeJavaScript("document.querySelector('#prompt-button')?.click()");
           await new Promise((resolve) => setTimeout(resolve, 250));
         }
+        if (process.env.CCSWITCH_TEST_VIEW === 'history') {
+          await mainWindow.webContents.executeJavaScript("document.querySelector('.history-button')?.click()");
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
         const image = await mainWindow.capturePage();
         await fsp.writeFile(process.env.CCSWITCH_TEST_SCREENSHOT, image.toPNG());
         app.quit();
       }, 2500);
     });
   }
+  if (process.env.CCSWITCH_TEST_TRAY) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        mainWindow.close();
+        const result = { hidden: !mainWindow.isVisible(), alive: !mainWindow.isDestroyed(), trayCreated: Boolean(tray) };
+        console.log(JSON.stringify(result));
+        isQuitting = true;
+        app.exit(result.hidden && result.alive && result.trayCreated ? 0 : 1);
+      }, 300);
+    });
+  }
 }
 
-app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
-  statePath = path.join(app.getPath('userData'), 'state.json');
-  if (!fs.existsSync(statePath)) await saveState(defaultState());
-  setupIpc();
-  createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
-});
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+else {
+  app.on('second-instance', showMainWindow);
+  app.whenReady().then(async () => {
+    Menu.setApplicationMenu(null);
+    statePath = path.join(app.getPath('userData'), 'state.json');
+    if (!fs.existsSync(statePath)) await saveState(defaultState());
+    setupIpc();
+    createWindow();
+    createTray();
+    app.on('activate', showMainWindow);
+  });
+}
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { isQuitting = true; });

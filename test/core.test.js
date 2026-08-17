@@ -2,10 +2,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   buildRequest,
+  classifyError,
   defaultModel,
   endpointFor,
+  networkErrorDetails,
   parseClaude,
   parseCodex,
+  proxyUrlFromRule,
   responseText,
 } = require('../src/core');
 
@@ -46,12 +49,25 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
   const claude = buildRequest({ group: 'claude', baseUrl: 'https://example.com/v1', key: 'a', keyKind: 'api-key' }, 'claude-opus-5', 'hello');
   assert.equal(claude.endpoint, 'https://example.com/v1/messages');
   assert.equal(claude.headers['x-api-key'], 'a');
+  assert.equal(claude.headers['user-agent'], 'CCSwitch-Tester');
   assert.equal(claude.body.max_tokens, 64);
 
   const codex = buildRequest({ group: 'codex', protocol: 'openai-responses', baseUrl: 'https://example.com/v1', key: 'b' }, 'gpt-5.6-sol', 'hello');
   assert.equal(codex.endpoint, 'https://example.com/v1/responses');
   assert.equal(codex.headers.authorization, 'Bearer b');
   assert.equal(codex.body.max_output_tokens, 64);
+});
+
+test('reports underlying transport errors instead of plain fetch failed', () => {
+  const error = new TypeError('fetch failed', { cause: Object.assign(new Error('getaddrinfo ENOTFOUND example.invalid'), { code: 'ENOTFOUND' }) });
+  assert.equal(classifyError(error, 0), 'DNS 解析失败');
+  assert.match(networkErrorDetails(error), /ENOTFOUND/);
+  assert.match(networkErrorDetails(error), /example\.invalid/);
+});
+
+test('extracts an HTTP proxy from Windows proxy resolution rules', () => {
+  assert.equal(proxyUrlFromRule('PROXY 127.0.0.1:7890; DIRECT'), 'http://127.0.0.1:7890');
+  assert.equal(proxyUrlFromRule('DIRECT'), '');
 });
 
 test('extracts text from supported response shapes', () => {
