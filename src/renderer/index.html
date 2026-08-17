@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CCSwitch 供应商测试器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <div class="brand-mark">C</div>
+          <div>
+            <h1>CCSwitch 供应商测试器</h1>
+            <p>供应商检测</p>
+          </div>
+        </div>
+        <div class="top-actions">
+          <span id="last-sync" class="sync-label">尚未读取配置</span>
+          <button id="refresh-button" class="button secondary" type="button" title="重新读取 CCSwitch 配置">↻ 刷新配置</button>
+          <button id="prompt-button" class="button secondary" type="button" title="管理随机测试语句">☷ 语句管理</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="hero-row">
+          <div>
+            <p class="eyebrow">真实请求</p>
+            <h2>供应商列表</h2>
+          </div>
+          <div class="run-panel">
+            <span id="selection-count" class="selection-count">未选择供应商</span>
+            <button id="run-button" class="button primary" type="button">▶ 测试选中项</button>
+          </div>
+        </section>
+
+        <div class="list-toolbar">
+          <nav class="tabs" aria-label="供应商类型">
+            <button class="tab active" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
+            <button class="tab" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
+          </nav>
+          <label class="select-all"><input id="select-all" type="checkbox" />选择当前页</label>
+        </div>
+
+        <section class="notice" id="page-notice" hidden></section>
+        <section id="provider-list" class="provider-list" aria-live="polite"></section>
+      </main>
+
+      <div id="prompt-modal" class="modal-backdrop" hidden>
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="prompt-title">
+          <div class="modal-header">
+            <div>
+              <p class="eyebrow">语句库</p>
+              <h2 id="prompt-title">随机测试语句</h2>
+            </div>
+            <button id="close-prompt-button" class="icon-button" type="button" title="关闭">×</button>
+          </div>
+          <div id="prompt-list" class="prompt-list"></div>
+          <form id="prompt-form" class="prompt-form">
+            <input id="prompt-id" type="hidden" />
+            <label>名称<input id="prompt-name" required maxlength="60" placeholder="例如：方案判断" /></label>
+            <label>语句<textarea id="prompt-text" required maxlength="500" rows="3" placeholder="输入一条自然的测试问题"></textarea></label>
+            <div class="form-actions">
+              <button id="cancel-prompt-button" class="button secondary" type="button">取消编辑</button>
+              <button class="button primary" type="submit">保存语句</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <template id="empty-template">
+        <div class="empty-state">
+          <div class="empty-icon">—</div>
+          <h3>没有可测试的配置</h3>
+          <p>CCSwitch 中未找到同时包含 key 和服务地址的供应商。</p>
+        </div>
+      </template>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

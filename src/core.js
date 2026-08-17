@@ -1,0 +1,135 @@
+const TOML = require('@iarna/toml');
+
+function parseJson(value, fallback = {}) {
+  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
+function parseCodex(settings) {
+  const auth = settings?.auth || {};
+  const configText = settings?.config || '';
+  let config = {};
+  try { config = configText ? TOML.parse(configText) : {}; } catch { config = {}; }
+
+  const selectedProvider = config.model_provider;
+  const providerConfig = selectedProvider && config.model_providers?.[selectedProvider]
+    ? config.model_providers[selectedProvider]
+    : {};
+  const baseUrl = providerConfig.base_url || settings?.base_url || '';
+  const wireApi = String(config.wire_api || providerConfig.wire_api || '').toLowerCase();
+  const apiFormat = String(providerConfig.api_format || '').toLowerCase();
+  const protocol = wireApi.includes('chat') || wireApi.includes('completion') || apiFormat.includes('chat')
+    ? 'openai-chat'
+    : 'openai-responses';
+  return {
+    key: auth.OPENAI_API_KEY || '',
+    baseUrl,
+    configuredModel: config.model || providerConfig.model || '',
+    protocol,
+  };
+}
+
+function findNestedModel(value) {
+  if (!value || typeof value !== 'object') return '';
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === 'string' && key.toLowerCase().includes('model') && item.trim()) return item.trim();
+    if (item && typeof item === 'object') {
+      const found = findNestedModel(item);
+      if (found) return found;
+    }
+  }
+  return '';
+}
+
+function parseClaude(settings, meta, appType) {
+  const env = settings?.env || {};
+  const configuredModel = env.ANTHROPIC_MODEL || env.ANTHROPIC_DEFAULT_SONNET_MODEL
+    || env.ANTHROPIC_DEFAULT_OPUS_MODEL || env.ANTHROPIC_DEFAULT_HAIKU_MODEL
+    || (appType === 'claude-desktop' ? findNestedModel(meta) : '');
+  return {
+    key: env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY || '',
+    keyKind: env.ANTHROPIC_API_KEY ? 'api-key' : 'auth-token',
+    baseUrl: env.ANTHROPIC_BASE_URL || '',
+    configuredModel,
+    protocol: 'anthropic-messages',
+  };
+}
+
+function defaultModel(group) {
+  return group === 'codex' ? 'gpt-5.6-sol' : 'claude-opus-5';
+}
+
+function maskKey(key) {
+  if (!key) return '';
+  if (key.length <= 8) return `${key.slice(0, 2)}...`;
+  return `${key.slice(0, 4)}...${key.slice(-4)}`;
+}
+
+function normalizeBaseUrl(value) {
+  return String(value || '').trim().replace(/\/+$/, '');
+}
+
+function endpointFor(baseUrl, pathSuffix) {
+  const base = normalizeBaseUrl(baseUrl);
+  if (!base) return '';
+  if (base.endsWith('/v1') && pathSuffix.startsWith('/v1')) return `${base}${pathSuffix.slice(3)}`;
+  if (!base.endsWith('/v1') && pathSuffix.startsWith('/v1')) return `${base}${pathSuffix}`;
+  if (base.endsWith('/v1') && !pathSuffix.startsWith('/v1')) return `${base}${pathSuffix}`;
+  return `${base}/v1${pathSuffix}`;
+}
+
+function classifyError(error, status) {
+  if (status === 401 || status === 403) return '凭证无效或无权限';
+  if (status === 404) return '接口路径或模型不存在';
+  if (status === 408 || status === 429) return '超时或触发限流';
+  if (status >= 500) return '供应商服务端错误';
+  if (error?.name === 'AbortError') return '请求超时';
+  if (error?.cause?.code === 'ENOTFOUND' || error?.code === 'ENOTFOUND') return 'DNS 解析失败';
+  if (error?.cause?.code === 'ECONNREFUSED' || error?.code === 'ECONNREFUSED') return '连接被拒绝';
+  if (error?.message) return '网络请求失败';
+  return '请求失败';
+}
+
+function responseText(payload) {
+  if (!payload) return '';
+  if (typeof payload === 'string') return payload;
+  if (Array.isArray(payload.content)) return payload.content.map((part) => typeof part === 'string' ? part : part?.text || '').join('');
+  if (typeof payload.output_text === 'string') return payload.output_text;
+  if (Array.isArray(payload.output)) return payload.output.flatMap((item) => item?.content || []).map((part) => part?.text || '').join('');
+  if (typeof payload.choices?.[0]?.message?.content === 'string') return payload.choices[0].message.content;
+  if (Array.isArray(payload.choices?.[0]?.message?.content)) return payload.choices[0].message.content.map((part) => part?.text || '').join('');
+  return '';
+}
+
+function buildRequest(provider, model, prompt) {
+  const headers = { 'content-type': 'application/json' };
+  let endpoint;
+  let body;
+  if (provider.group === 'claude') {
+    endpoint = endpointFor(provider.baseUrl, '/messages');
+    headers['anthropic-version'] = '2023-06-01';
+    if (provider.keyKind === 'api-key') headers['x-api-key'] = provider.key;
+    else headers.authorization = `Bearer ${provider.key}`;
+    body = { model, max_tokens: 64, messages: [{ role: 'user', content: prompt }] };
+  } else if (provider.protocol === 'openai-chat') {
+    endpoint = endpointFor(provider.baseUrl, '/chat/completions');
+    headers.authorization = `Bearer ${provider.key}`;
+    body = { model, max_tokens: 64, stream: false, messages: [{ role: 'user', content: prompt }] };
+  } else {
+    endpoint = endpointFor(provider.baseUrl, '/responses');
+    headers.authorization = `Bearer ${provider.key}`;
+    body = { model, max_output_tokens: 64, store: false, input: prompt };
+  }
+  return { endpoint, headers, body };
+}
+
+module.exports = {
+  buildRequest,
+  classifyError,
+  defaultModel,
+  endpointFor,
+  maskKey,
+  parseClaude,
+  parseCodex,
+  parseJson,
+  responseText,
+};
