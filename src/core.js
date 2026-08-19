@@ -9,6 +9,46 @@ function parseJson(value, fallback = {}) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+function providerKey(appType, id) {
+  return `${encodeURIComponent(String(appType || ''))}:${encodeURIComponent(String(id || ''))}`;
+}
+
+function parseProviderKey(value) {
+  const raw = String(value || '');
+  const separator = raw.indexOf(':');
+  if (separator <= 0 || separator === raw.length - 1) return null;
+  try {
+    const appType = decodeURIComponent(raw.slice(0, separator));
+    const id = decodeURIComponent(raw.slice(separator + 1));
+    return appType && id ? { appType, id } : null;
+  } catch {
+    return null;
+  }
+}
+
+function migrateProviderState(state, providers) {
+  const next = {
+    prompts: Array.isArray(state?.prompts) ? state.prompts : [],
+    histories: { ...(state?.histories || {}) },
+    modelOverrides: { ...(state?.modelOverrides || {}) },
+  };
+  const counts = new Map();
+  for (const provider of providers || []) counts.set(provider.id, (counts.get(provider.id) || 0) + 1);
+  let changed = false;
+  for (const provider of providers || []) {
+    if (counts.get(provider.id) !== 1) continue;
+    const key = provider.providerKey || providerKey(provider.appType, provider.id);
+    for (const field of ['histories', 'modelOverrides']) {
+      if (!Object.hasOwn(next[field], key) && Object.hasOwn(next[field], provider.id)) {
+        next[field][key] = next[field][provider.id];
+        delete next[field][provider.id];
+        changed = true;
+      }
+    }
+  }
+  return { state: next, changed };
+}
+
 function parseCodex(settings) {
   const auth = settings?.auth || {};
   const configText = settings?.config || '';
@@ -169,10 +209,14 @@ module.exports = {
   defaultModel,
   endpointFor,
   maskKey,
+  migrateProviderState,
   networkErrorDetails,
+  normalizeBaseUrl,
   parseClaude,
   parseCodex,
   parseJson,
+  parseProviderKey,
+  providerKey,
   proxyUrlFromRule,
   responseText,
 };

@@ -16,7 +16,7 @@ async function run() {
     const search = document.querySelector('#provider-search');
     search.value = 'claude.example';
     search.dispatchEvent(new Event('input', { bubbles: true }));
-    const filteredClaudeIds = [...document.querySelectorAll('.provider-check')].map((item) => item.dataset.providerId);
+    const filteredClaudeKeys = [...document.querySelectorAll('.provider-check')].map((item) => item.dataset.providerKey);
     document.querySelector('#select-all').click();
     const claudeCheckbox = document.querySelector('.provider-check');
     document.querySelector('[data-group="codex"]').click();
@@ -31,6 +31,11 @@ async function run() {
     const historyModalOpen = !document.querySelector('#history-modal').hidden;
     const historyTitle = document.querySelector('#history-title').textContent;
     document.querySelector('#close-history-button').click();
+    await window.ccswitch.setSyncEmpty(true);
+    document.querySelector('#sync-button').click();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const emptySyncText = document.querySelector('#sync-list').textContent.trim();
+    document.querySelector('#close-sync-button').click();
     document.querySelector('#prompt-button').click();
     document.querySelector('.delete-prompt').click();
     document.querySelector('.confirm-delete-prompt').click();
@@ -47,13 +52,15 @@ async function run() {
       testRuns: await window.ccswitch.getTestRuns(),
       historyModalOpen,
       historyTitle,
-      filteredClaudeIds,
+      filteredClaudeKeys,
       restoredClaudeQuery,
+      emptySyncText,
     };
   })()`);
-  const currentTabOnly = result.testRuns.length === 2 && result.testRuns.every((ids) => ids.length === 1 && ids[0] === 'claude-1');
-  const searchWorks = result.filteredClaudeIds.length === 1 && result.filteredClaudeIds[0] === 'claude-1' && result.restoredClaudeQuery === 'claude.example';
-  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1 || !currentTabOnly || !searchWorks || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
+  const currentTabOnly = result.testRuns.length >= 1 && result.testRuns.every((keys) => keys.length === 1 && keys[0] === 'claude:shared');
+  const searchWorks = result.filteredClaudeKeys.length === 1 && result.filteredClaudeKeys[0] === 'claude:shared' && result.restoredClaudeQuery === 'claude.example';
+  const emptySyncWorks = result.emptySyncText === '没有可比对的 Claude Code 供应商';
+  if (!result.focused || result.value !== '删除后仍可输入' || result.promptsRemaining !== 1 || !currentTabOnly || !searchWorks || !emptySyncWorks || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
     throw new Error(`语句删除后的输入框回归失败：${JSON.stringify(result)}`);
   }
   console.log(JSON.stringify(result));

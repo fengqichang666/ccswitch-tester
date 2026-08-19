@@ -9,12 +9,16 @@ const {
   buildRequest,
   defaultModel,
   maskKey,
+  migrateProviderState,
   parseClaude,
   parseCodex,
   parseJson,
+  parseProviderKey,
+  providerKey,
   proxyUrlFromRule,
 } = require('./core');
 const { requestProvider } = require('./request-client');
+const { previewSync, syncToDesktop } = require('./ccswitch-write');
 
 if (process.env.CCSWITCH_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.CCSWITCH_TEST_USER_DATA));
 
@@ -101,26 +105,31 @@ async function extractProviders() {
   const result = db.exec('SELECT id, app_type, name, settings_config, website_url, category, meta FROM providers WHERE app_type IN (\'claude\', \'claude-desktop\', \'codex\') ORDER BY app_type, sort_index, name');
   db.close();
   const rows = result[0]?.values || [];
-  const state = safeReadState();
-  return rows.map(([id, appType, name, settingsConfig, websiteUrl, category, metaText]) => {
+  const providers = rows.map(([id, appType, name, settingsConfig, websiteUrl, category, metaText]) => {
     const settings = parseJson(settingsConfig);
     const meta = parseJson(metaText);
     const parsed = appType === 'codex' ? parseCodex(settings) : parseClaude(settings, meta, appType);
     const group = appType === 'codex' ? 'codex' : 'claude';
     const providerDefaultModel = defaultModel(group);
-    const model = state.modelOverrides[id] || providerDefaultModel;
     const supported = Boolean(parsed.key && parsed.baseUrl && category !== 'official');
     return {
-      id, appType, group, name: name || id, baseUrl: parsed.baseUrl, websiteUrl: websiteUrl || '',
-      model, defaultModel: providerDefaultModel, configuredModel: parsed.configuredModel || '', protocol: parsed.protocol, keyHint: maskKey(parsed.key), hasKey: Boolean(parsed.key),
+      id, providerKey: providerKey(appType, id), appType, group, name: name || id, baseUrl: parsed.baseUrl, websiteUrl: websiteUrl || '',
+      model: providerDefaultModel, defaultModel: providerDefaultModel, configuredModel: parsed.configuredModel || '', protocol: parsed.protocol, keyHint: maskKey(parsed.key), hasKey: Boolean(parsed.key),
       supported, unavailableReason: category === 'official' ? '官方配置没有可读取的自定义 key' : !parsed.key ? '缺少 key' : !parsed.baseUrl ? '缺少服务地址' : '',
     };
   });
+  const { state } = migrateProviderState(safeReadState(), providers);
+  for (const provider of providers) provider.model = state.modelOverrides[provider.providerKey] || provider.defaultModel;
+  return providers;
 }
 
-async function getProviderSecrets(id) {
+async function getProviderSecrets(key) {
+  const ref = parseProviderKey(key);
+  if (!ref) throw new Error('供应商标识无效，请刷新配置后重试');
   const db = await readDatabase(ccswitchDbPath());
-  const result = db.exec(`SELECT id, app_type, name, settings_config, website_url, category, meta FROM providers WHERE id = '${String(id).replaceAll("'", "''")}' LIMIT 1`);
+  const safeId = ref.id.replaceAll("'", "''");
+  const safeAppType = ref.appType.replaceAll("'", "''");
+  const result = db.exec(`SELECT id, app_type, name, settings_config, website_url, category, meta FROM providers WHERE id = '${safeId}' AND app_type = '${safeAppType}' LIMIT 1`);
   db.close();
   const row = result[0]?.values?.[0];
   if (!row) throw new Error('找不到供应商配置');
@@ -128,48 +137,48 @@ async function getProviderSecrets(id) {
   const settings = parseJson(settingsConfig);
   const meta = parseJson(metaText);
   const parsed = appType === 'codex' ? parseCodex(settings) : parseClaude(settings, meta, appType);
-  return { id: providerId, appType, group: appType === 'codex' ? 'codex' : 'claude', name, websiteUrl, category, ...parsed };
+  return { id: providerId, providerKey: providerKey(appType, providerId), appType, group: appType === 'codex' ? 'codex' : 'claude', name, websiteUrl, category, ...parsed };
 }
 
-async function runTests(providerIds) {
+async function runTests(providerKeys) {
   if (running) throw new Error('已有测试正在运行');
   const state = safeReadState();
   const prompts = state.prompts.filter((item) => item.enabled && item.text.trim());
   if (!prompts.length) throw new Error('请先在语句管理中启用至少一条测试语句');
   running = true;
   try {
-    const queue = [...providerIds];
+    const queue = [...providerKeys];
     const worker = async () => {
       while (queue.length) {
-        const providerId = queue.shift();
-        if (!providerId) return;
+        const requestedKey = queue.shift();
+        if (!requestedKey) return;
         const prompt = prompts[Math.floor(Math.random() * prompts.length)];
         let provider;
         let result;
         try {
-          provider = await getProviderSecrets(providerId);
-          const model = state.modelOverrides[provider.id] || defaultModel(provider.group);
+          provider = await getProviderSecrets(requestedKey);
+          const model = state.modelOverrides[provider.providerKey] || defaultModel(provider.group);
           const endpoint = buildRequest(provider, model, prompt.text).endpoint;
           const proxy = await getProxyConfig(provider.group, endpoint);
           result = await requestProvider(provider, model, prompt.text, { proxyUrl: proxy.proxyUrl, proxyLabel: proxy.label });
           result.model = model;
         } catch (error) {
-          provider = provider || { id: providerId, name: providerId, group: 'unknown' };
-          result = { ok: false, status: 0, elapsedMs: 0, response: '', errorCategory: '配置读取失败', error: String(error?.message || error).slice(0, 500), model: state.modelOverrides[providerId] || '' };
+          provider = provider || { id: requestedKey, providerKey: requestedKey, name: requestedKey, group: 'unknown' };
+          result = { ok: false, status: 0, elapsedMs: 0, response: '', errorCategory: '配置读取失败', error: String(error?.message || error).slice(0, 500), model: state.modelOverrides[requestedKey] || '' };
         }
         const record = {
           id: crypto.randomUUID(), testedAt: new Date().toISOString(), model: result.model, promptId: prompt.id, promptName: prompt.name,
           promptText: prompt.text, ...result,
         };
-        const history = state.histories[provider.id] || [];
-        state.histories[provider.id] = [record, ...history].slice(0, 10);
+        const history = state.histories[provider.providerKey] || [];
+        state.histories[provider.providerKey] = [record, ...history].slice(0, 10);
         await saveState(state);
-        const safeResult = { providerId: provider.id, providerName: provider.name, group: provider.group, ...record };
+        const safeResult = { providerKey: provider.providerKey, providerId: provider.id, providerName: provider.name, group: provider.group, ...record };
         delete safeResult.promptText;
         mainWindow?.webContents.send('test-progress', safeResult);
       }
     };
-    await Promise.all(Array.from({ length: Math.min(3, providerIds.length) }, worker));
+    await Promise.all(Array.from({ length: Math.min(3, providerKeys.length) }, worker));
     return { histories: state.histories };
   } finally {
     running = false;
@@ -178,9 +187,16 @@ async function runTests(providerIds) {
 
 function setupIpc() {
   ipcMain.handle('load-providers', () => extractProviders());
-  ipcMain.handle('load-state', () => safeReadState());
+  ipcMain.handle('load-state', async () => {
+    const providers = await extractProviders();
+    const migrated = migrateProviderState(safeReadState(), providers);
+    if (migrated.changed) await saveState(migrated.state);
+    return migrated.state;
+  });
   ipcMain.handle('save-state', (_event, next) => saveState(next));
   ipcMain.handle('run-tests', (_event, ids) => runTests(Array.isArray(ids) ? ids : []));
+  ipcMain.handle('sync-preview', () => previewSync({ dbPath: ccswitchDbPath() }));
+  ipcMain.handle('sync-desktop', (_event, ids) => syncToDesktop(Array.isArray(ids) ? ids : [], { dbPath: ccswitchDbPath() }));
   ipcMain.handle('show-error', (_event, message) => dialog.showErrorBox('CCSwitch Tester', String(message)));
 }
 

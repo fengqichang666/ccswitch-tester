@@ -5,9 +5,12 @@ const {
   classifyError,
   defaultModel,
   endpointFor,
+  migrateProviderState,
   networkErrorDetails,
   parseClaude,
   parseCodex,
+  parseProviderKey,
+  providerKey,
   proxyUrlFromRule,
   responseText,
 } = require('../src/core');
@@ -81,4 +84,31 @@ test('extracts text from supported response shapes', () => {
   assert.equal(responseText({ content: [{ type: 'text', text: 'claude' }] }), 'claude');
   assert.equal(responseText({ output: [{ content: [{ type: 'output_text', text: 'codex' }] }] }), 'codex');
   assert.equal(responseText({ choices: [{ message: { content: 'chat' } }] }), 'chat');
+});
+
+test('uses app type and id together as the provider identity', () => {
+  const key = providerKey('claude', 'shared:id');
+  assert.equal(key, 'claude:shared%3Aid');
+  assert.deepEqual(parseProviderKey(key), { appType: 'claude', id: 'shared:id' });
+  assert.equal(parseProviderKey('legacy-id'), null);
+});
+
+test('migrates legacy provider state only when the id is unambiguous', () => {
+  const legacy = {
+    prompts: [],
+    histories: { unique: [{ id: 'history' }], shared: [{ id: 'ambiguous' }] },
+    modelOverrides: { unique: 'custom-model', shared: 'wrong-for-some-provider' },
+  };
+  const providers = [
+    { id: 'unique', appType: 'claude', providerKey: providerKey('claude', 'unique') },
+    { id: 'shared', appType: 'claude', providerKey: providerKey('claude', 'shared') },
+    { id: 'shared', appType: 'codex', providerKey: providerKey('codex', 'shared') },
+  ];
+  const migrated = migrateProviderState(legacy, providers);
+  assert.equal(migrated.changed, true);
+  assert.deepEqual(migrated.state.histories['claude:unique'], [{ id: 'history' }]);
+  assert.equal(migrated.state.modelOverrides['claude:unique'], 'custom-model');
+  assert.deepEqual(migrated.state.histories.shared, [{ id: 'ambiguous' }]);
+  assert.equal(migrated.state.histories['claude:shared'], undefined);
+  assert.equal(migrated.state.histories['codex:shared'], undefined);
 });

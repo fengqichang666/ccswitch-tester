@@ -19,6 +19,7 @@
         <div class="top-actions">
           <span id="last-sync" class="sync-label">尚未读取配置</span>
           <button id="refresh-button" class="button secondary" type="button" title="重新读取 CCSwitch 配置">↻ 刷新配置</button>
+          <button id="sync-button" class="button secondary" type="button" title="把 Claude Code 供应商同步到 Claude Desktop">⇄ 同步到 Desktop</button>
           <button id="prompt-button" class="button secondary" type="button" title="管理随机测试语句">☷ 语句管理</button>
         </div>
       </header>
@@ -72,6 +73,29 @@
               <button class="button primary" type="submit">保存语句</button>
             </div>
           </form>
+        </section>
+      </div>
+
+      <div id="sync-modal" class="modal-backdrop" hidden>
+        <section class="modal sync-modal" role="dialog" aria-modal="true" aria-labelledby="sync-title">
+          <div class="modal-header">
+            <div>
+              <p class="eyebrow">配置搬运</p>
+              <h2 id="sync-title">同步到 Claude Desktop</h2>
+              <p id="sync-subtitle" class="modal-subtitle">按 Base URL 比对，只新增桌面侧缺少的供应商，不改动已有配置。</p>
+            </div>
+            <button id="close-sync-button" class="icon-button" type="button" title="关闭">×</button>
+          </div>
+          <div class="sync-toolbar">
+            <label class="select-all"><input id="sync-select-all" type="checkbox" />选择全部可同步项</label>
+            <span id="sync-count" class="selection-count">未选择</span>
+          </div>
+          <div id="sync-list" class="sync-list"></div>
+          <div id="sync-result" class="sync-result" hidden></div>
+          <div class="form-actions">
+            <button id="sync-refresh-button" class="button secondary" type="button">重新比对</button>
+            <button id="sync-run-button" class="button primary" type="button">写入 Claude Desktop</button>
+          </div>
         </section>
       </div>
 
