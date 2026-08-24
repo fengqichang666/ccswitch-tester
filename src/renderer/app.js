@@ -40,7 +40,7 @@ function historiesFor(key) { return app.state.histories?.[key] || []; }
 function renderCounts() {
   $('#claude-count').textContent = app.providers.filter((item) => item.group === 'claude').length;
   $('#codex-count').textContent = app.providers.filter((item) => item.group === 'codex').length;
-  const count = visibleProviders().filter((item) => app.selected.has(item.id)).length;
+  const count = visibleProviders().filter((item) => app.selected.has(item.providerKey)).length;
   const completed = app.running ? app.runTotal - app.pending.size : 0;
   $('#selection-count').textContent = app.running ? `进度 ${completed}/${app.runTotal}` : count ? `已选择 ${count} 个供应商` : '未选择供应商';
   $('#run-button').disabled = app.running || count === 0;
@@ -49,7 +49,7 @@ function renderCounts() {
   $('#prompt-button').disabled = app.running;
   document.querySelectorAll('.tab').forEach((item) => { item.disabled = app.running; });
   const visibleSupported = visibleProviders().filter((item) => item.supported);
-  const selectedVisible = visibleSupported.filter((item) => app.selected.has(item.id)).length;
+  const selectedVisible = visibleSupported.filter((item) => app.selected.has(item.providerKey)).length;
   const selectAll = $('#select-all');
   selectAll.checked = visibleSupported.length > 0 && selectedVisible === visibleSupported.length;
   selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleSupported.length;
@@ -100,16 +100,15 @@ function renderProviderCard(provider) {
   const pending = app.pending.has(provider.providerKey);
   const status = pending ? 'pending' : latest ? (latest.ok ? 'ok' : 'error') : 'none';
   const statusText = pending ? '测试中' : latest ? (latest.ok ? '最近一次成功' : '最近一次失败') : '未测试';
-  return `<article class="provider-card ${disabled ? 'unsupported' : ''}">
+  return `<article class="provider-card ${disabled ? 'unsupported' : ''}" ${provider.unavailableReason ? `title="${escapeHtml(provider.unavailableReason)}"` : ''}>
     <div class="provider-row">
       <input class="check provider-check" type="checkbox" data-provider-key="${escapeHtml(provider.providerKey)}" ${selected ? 'checked' : ''} ${disabled || app.running ? 'disabled' : ''} aria-label="选择 ${escapeHtml(provider.name)}" />
       <div class="provider-name">
         <div class="name-line"><strong title="${escapeHtml(provider.name)}">${escapeHtml(provider.name)}</strong><span class="pill ${provider.group}">${escapeHtml(appTypeLabel(provider))}</span></div>
-        <div class="provider-id" title="${escapeHtml(provider.id)}">${escapeHtml(provider.id)}</div>
       </div>
-      <div class="endpoint"><code title="${escapeHtml(provider.baseUrl || '未配置')}">${escapeHtml(provider.baseUrl || '未配置')}</code><div class="protocol-label">${escapeHtml(provider.protocol)}${provider.unavailableReason ? ` · ${escapeHtml(provider.unavailableReason)}` : ''}</div></div>
+      <div class="endpoint"><code title="${escapeHtml(provider.baseUrl || '未配置')}">${escapeHtml(provider.baseUrl || '未配置')}</code></div>
       <input class="model-field" data-model-key="${escapeHtml(provider.providerKey)}" value="${escapeHtml(provider.model)}" aria-label="${escapeHtml(provider.name)} 的模型" ${disabled || app.running ? 'disabled' : ''} />
-      <div class="key-hint ${provider.hasKey ? '' : 'missing'}">${provider.hasKey ? `key ${escapeHtml(provider.keyHint)}` : '未找到 key'}</div>
+      <div class="last-tested" title="${latest ? escapeHtml(formatTime(latest.testedAt)) : '尚未测试'}"><span>最近测试</span><time>${latest ? escapeHtml(formatTime(latest.testedAt)) : '未测试'}</time></div>
       <div class="row-actions"><span class="status ${status}">${statusText}</span><button class="button compact primary row-test-button" data-test-key="${escapeHtml(provider.providerKey)}" type="button" ${disabled || app.running ? 'disabled' : ''}>测试</button><button class="button compact secondary history-button" data-history-key="${escapeHtml(provider.providerKey)}" type="button">历史 ${history.length}</button></div>
     </div>
   </article>`;

@@ -95,3 +95,5 @@ npm run dist
 ```
 
 构建产物会写入 `dist/`。项目当前同时生成 NSIS 安装版和便携版。
+
+也可以直接双击项目根目录的 `build-latest.bat`。它会自动读取 `package.json` 的版本号，构建两个 Windows 版本，并复制到 `release/<版本>-latest/`，同时生成 `SHA256SUMS.txt`。如果旧包正在运行导致目录无法覆盖，脚本会自动创建带时间戳的新目录。

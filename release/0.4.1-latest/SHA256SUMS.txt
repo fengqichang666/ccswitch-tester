@@ -1,0 +1,2 @@
+4dfefaa821f9abf597332883c5be663b8fcff804bc20c0ac5a82fc2fad3fe042  CCSwitch-Tester-0.4.1-x64-setup.exe
+ebd8f2bce3e2736547b93f912f349fa7caa9e46553d66fe676d29ed8c501f465  CCSwitch-Tester-0.4.1-x64-portable.exe
