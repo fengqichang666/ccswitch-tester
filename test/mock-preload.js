@@ -24,6 +24,7 @@ const syncPlan = [
 let syncEmpty = false;
 
 contextBridge.exposeInMainWorld('ccswitch', {
+  getVersion: async () => '0.4.1-test',
   loadProviders: async () => structuredClone(providers),
   loadState: async () => structuredClone(state),
   saveState: async (next) => {

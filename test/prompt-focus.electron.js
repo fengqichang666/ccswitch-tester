@@ -48,6 +48,11 @@ async function run() {
     document.querySelector('.delete-prompt').click();
     document.querySelector('.confirm-delete-prompt').click();
     await new Promise((resolve) => setTimeout(resolve, 100));
+    const popupLayouts = [...document.querySelectorAll('.modal')].map((modal) => ({
+      modalOverflow: getComputedStyle(modal).overflow,
+      bodyOverflow: getComputedStyle(modal.querySelector('.modal-body')).overflowY,
+      headerFixed: getComputedStyle(modal).display === 'flex' && getComputedStyle(modal.querySelector('.modal-header')).flexBasis === 'auto',
+    }));
     const input = document.querySelector('#prompt-name');
     input.click();
     input.focus();
@@ -67,6 +72,7 @@ async function run() {
       selectionCount,
       runButtonEnabled,
       latestTestedText,
+      popupLayouts,
       emptySyncText,
     };
   })()`);
@@ -74,8 +80,9 @@ async function run() {
   const searchWorks = result.filteredClaudeKeys.length === 1 && result.filteredClaudeKeys[0] === 'claude:shared' && result.restoredClaudeQuery === 'claude.example';
   const selectionWorks = result.selectionCount === '已选择 1 个供应商' && result.runButtonEnabled;
   const latestTimeWorks = result.latestTestedText === '2026/8/17 08:00:00';
+  const popupsKeepHeaders = result.popupLayouts.length === 3 && result.popupLayouts.every((layout) => layout.modalOverflow === 'hidden' && layout.bodyOverflow === 'auto' && layout.headerFixed);
   const emptySyncWorks = result.emptySyncText === '没有可比对的 Claude Code 供应商';
-  if (!result.focused || result.value !== '删除后仍可输入' || !result.columnsAligned || !result.metadataHidden || result.promptsRemaining !== 1 || !currentTabOnly || !searchWorks || !selectionWorks || !latestTimeWorks || !emptySyncWorks || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
+  if (!result.focused || result.value !== '删除后仍可输入' || !result.columnsAligned || !result.metadataHidden || !popupsKeepHeaders || result.promptsRemaining !== 1 || !currentTabOnly || !searchWorks || !selectionWorks || !latestTimeWorks || !emptySyncWorks || !result.historyModalOpen || result.historyTitle !== 'Claude 测试供应商') {
     throw new Error(`语句删除后的输入框回归失败：${JSON.stringify(result)}`);
   }
   console.log(JSON.stringify(result));

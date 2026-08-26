@@ -13,7 +13,7 @@
           <div class="brand-mark">C</div>
           <div>
             <h1>CCSwitch 供应商测试器</h1>
-            <p>供应商检测</p>
+            <p id="app-version" aria-label="应用版本"></p>
           </div>
         </div>
         <div class="top-actions">
@@ -25,28 +25,21 @@
       </header>
 
       <main class="content">
-        <section class="hero-row">
-          <div>
-            <p class="eyebrow">真实请求</p>
-            <h2>供应商列表</h2>
-          </div>
-          <div class="run-panel">
-            <span id="selection-count" class="selection-count">未选择供应商</span>
-            <button id="run-button" class="button primary" type="button">▶ 测试选中项</button>
-          </div>
-        </section>
-
         <div class="list-toolbar">
-          <nav class="tabs" aria-label="供应商类型">
-            <button class="tab active" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
-            <button class="tab" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
-          </nav>
+          <div class="list-controls">
+            <nav class="tabs" aria-label="供应商类型">
+              <button class="tab active" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
+              <button class="tab" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
+            </nav>
+            <label class="select-all"><input id="select-all" type="checkbox" />选择当前结果</label>
+            <span id="selection-count" class="selection-count">未选择供应商</span>
+          </div>
           <div class="list-tools">
             <label class="provider-search">
               <span aria-hidden="true">⌕</span>
               <input id="provider-search" type="search" placeholder="按名称或 Server URL 搜索" autocomplete="off" />
             </label>
-            <label class="select-all"><input id="select-all" type="checkbox" />选择当前结果</label>
+            <button id="run-button" class="button primary" type="button">▶ 测试选中项</button>
           </div>
         </div>
 
@@ -63,16 +56,18 @@
             </div>
             <button id="close-prompt-button" class="icon-button" type="button" title="关闭">×</button>
           </div>
-          <div id="prompt-list" class="prompt-list"></div>
-          <form id="prompt-form" class="prompt-form">
-            <input id="prompt-id" type="hidden" />
-            <label>名称<input id="prompt-name" required maxlength="60" placeholder="例如：方案判断" /></label>
-            <label>语句<textarea id="prompt-text" required maxlength="500" rows="3" placeholder="输入一条自然的测试问题"></textarea></label>
-            <div class="form-actions">
-              <button id="cancel-prompt-button" class="button secondary" type="button">取消编辑</button>
-              <button class="button primary" type="submit">保存语句</button>
-            </div>
-          </form>
+          <div class="modal-body">
+            <div id="prompt-list" class="prompt-list"></div>
+            <form id="prompt-form" class="prompt-form">
+              <input id="prompt-id" type="hidden" />
+              <label>名称<input id="prompt-name" required maxlength="60" placeholder="例如：方案判断" /></label>
+              <label>语句<textarea id="prompt-text" required maxlength="500" rows="3" placeholder="输入一条自然的测试问题"></textarea></label>
+              <div class="form-actions">
+                <button id="cancel-prompt-button" class="button secondary" type="button">取消编辑</button>
+                <button class="button primary" type="submit">保存语句</button>
+              </div>
+            </form>
+          </div>
         </section>
       </div>
 
@@ -86,15 +81,17 @@
             </div>
             <button id="close-sync-button" class="icon-button" type="button" title="关闭">×</button>
           </div>
-          <div class="sync-toolbar">
-            <label class="select-all"><input id="sync-select-all" type="checkbox" />选择全部可同步项</label>
-            <span id="sync-count" class="selection-count">未选择</span>
-          </div>
-          <div id="sync-list" class="sync-list"></div>
-          <div id="sync-result" class="sync-result" hidden></div>
-          <div class="form-actions">
-            <button id="sync-refresh-button" class="button secondary" type="button">重新比对</button>
-            <button id="sync-run-button" class="button primary" type="button">写入 Claude Desktop</button>
+          <div class="modal-body">
+            <div class="sync-toolbar">
+              <label class="select-all"><input id="sync-select-all" type="checkbox" />选择全部可同步项</label>
+              <span id="sync-count" class="selection-count">未选择</span>
+            </div>
+            <div id="sync-list" class="sync-list"></div>
+            <div id="sync-result" class="sync-result" hidden></div>
+            <div class="form-actions">
+              <button id="sync-refresh-button" class="button secondary" type="button">重新比对</button>
+              <button id="sync-run-button" class="button primary" type="button">写入 Claude Desktop</button>
+            </div>
           </div>
         </section>
       </div>
@@ -109,7 +106,9 @@
             </div>
             <button id="close-history-button" class="icon-button" type="button" title="关闭">×</button>
           </div>
-          <div id="history-list" class="history-list"></div>
+          <div class="modal-body">
+            <div id="history-list" class="history-list"></div>
+          </div>
         </section>
       </div>
 

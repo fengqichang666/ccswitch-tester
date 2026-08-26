@@ -1,2 +1,2 @@
-4dfefaa821f9abf597332883c5be663b8fcff804bc20c0ac5a82fc2fad3fe042  CCSwitch-Tester-0.4.1-x64-setup.exe
-ebd8f2bce3e2736547b93f912f349fa7caa9e46553d66fe676d29ed8c501f465  CCSwitch-Tester-0.4.1-x64-portable.exe
+726f0125898f9637a78d9d826930388188eb690a737b3cd6b7e85f89d6e714ee  CCSwitch-Tester-0.4.1-x64-setup.exe
+46f09bd46fddcfefb586a5125a02b395c13d1c5c0c325697b47db48e68f6d2ca  CCSwitch-Tester-0.4.1-x64-portable.exe

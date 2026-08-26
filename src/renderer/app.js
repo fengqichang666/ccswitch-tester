@@ -440,6 +440,7 @@ document.addEventListener('input', async (event) => {
 
 $('#prompt-form').addEventListener('submit', handlePromptSubmit);
 $('#cancel-prompt-button').style.visibility = 'hidden';
+window.ccswitch.getVersion().then((version) => { $('#app-version').textContent = `v${version}`; }).catch(() => {});
 window.ccswitch.onTestProgress((result) => {
   const existing = app.state.histories[result.providerKey] || [];
   app.state.histories[result.providerKey] = [result, ...existing.filter((item) => item.id !== result.id)].slice(0, 10);

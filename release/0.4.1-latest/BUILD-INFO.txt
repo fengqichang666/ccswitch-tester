@@ -1,5 +1,5 @@
 ﻿CCSwitch Tester v0.4.1
-Built: 2026-08-24 13:43:43 +08:00
+Built: 2026-08-26 16:01:28 +08:00
 Artifacts:
 - CCSwitch-Tester-0.4.1-x64-setup.exe
 - CCSwitch-Tester-0.4.1-x64-portable.exe

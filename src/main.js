@@ -186,6 +186,7 @@ async function runTests(providerKeys) {
 }
 
 function setupIpc() {
+  ipcMain.handle('get-version', () => app.getVersion());
   ipcMain.handle('load-providers', () => extractProviders());
   ipcMain.handle('load-state', async () => {
     const providers = await extractProviders();
