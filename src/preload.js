@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('ccswitch', {
   getVersion: () => ipcRenderer.invoke('get-version'),
   loadProviders: () => ipcRenderer.invoke('load-providers'),
+  exportProviders: () => ipcRenderer.invoke('export-providers'),
   loadState: () => ipcRenderer.invoke('load-state'),
   saveState: (state) => ipcRenderer.invoke('save-state', state),
   runTests: (providerKeys) => ipcRenderer.invoke('run-tests', providerKeys),

@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 const initSqlJs = require('sql.js');
 const {
   buildRequest,
+  buildMobileExport,
   defaultModel,
   maskKey,
   migrateProviderState,
@@ -23,9 +24,22 @@ const { previewSync, syncToDesktop } = require('./ccswitch-write');
 if (process.env.CCSWITCH_TEST_USER_DATA) app.setPath('userData', path.resolve(process.env.CCSWITCH_TEST_USER_DATA));
 
 const DEFAULT_PROMPTS = [
-  { id: 'intro', name: '自我介绍', text: '你好，请用两三句话介绍你能帮我做什么，并给出一个具体例子。', enabled: true },
-  { id: 'engineering', name: '工程建议', text: '我有一个小项目需要提高稳定性，请给出一条具体、可执行的建议。', enabled: true },
-  { id: 'planning', name: '方案判断', text: '请帮我快速判断一个技术方案是否可行，并说明最需要注意的一点。', enabled: true },
+  { id: '5a80498b-58be-42ed-98cd-0f681bbc54b2', name: 'js', text: 'js数据类型有哪些', enabled: true },
+  { id: '79f70511-4e45-4f8d-82ea-ce1adce3c972', name: 'java', text: 'java数据类型都有哪些', enabled: true },
+  { id: 'ed828dfe-607f-4e69-9d40-5add4091321b', name: 'mysql', text: 'mysql数据类型都有哪些', enabled: true },
+  { id: '0ec33901-f315-4c10-8c39-6d2a950fc15d', name: 'java 字符串', text: 'java字符串 是复杂数据类型吗', enabled: true },
+  { id: '493b489b-6fe3-4f3b-9c3d-1f5f5140a4f1', name: '相等', text: 'java中有==与===的区别吗', enabled: true },
+  { id: 'e5b25467-860d-49ad-88be-ad5555a7e2c5', name: '电脑正常温度范围', text: '电脑正常温度范围是多少', enabled: true },
+  { id: 'fff45aa8-fcb5-40af-b462-44fe63c28c3a', name: '包装类', text: '简单告诉我 java数据类型包装类有哪些', enabled: true },
+  { id: '00fa8be6-40e6-48b3-a1fb-c619f4904e25', name: 'maven', text: 'maven是什么 简略说下', enabled: true },
+  { id: 'js-const-let', name: 'js常量', text: 'JavaScript 中 const 和 let 有什么区别？请简短回答。', enabled: true },
+  { id: 'java-try-catch', name: 'java异常', text: 'Java 中 try-catch 的作用是什么？请简短回答。', enabled: true },
+  { id: 'mysql-primary-key', name: 'mysql主键', text: 'MySQL 主键的作用是什么？请简短回答。', enabled: true },
+  { id: 'http-404', name: 'http状态码', text: 'HTTP 404 状态码表示什么？请简短回答。', enabled: true },
+  { id: 'git-branch', name: 'git分支', text: 'Git 分支有什么作用？请简短回答。', enabled: true },
+  { id: 'windows-memory', name: '内存查看', text: 'Windows 如何查看内存占用？请给出一种方法。', enabled: true },
+  { id: 'cpu-temperature', name: 'cpu温度', text: 'CPU 温度达到 90°C 需要注意吗？请简短回答。', enabled: true },
+  { id: 'connection-ok', name: '连接测试', text: '请只回复“连接正常”。', enabled: true },
 ];
 
 let mainWindow;
@@ -33,6 +47,7 @@ let tray;
 let sqlJs;
 let statePath;
 let running = false;
+let exporting = false;
 let isQuitting = false;
 let stateWriteQueue = Promise.resolve();
 
@@ -41,14 +56,20 @@ function ccswitchDbPath() {
 }
 
 function defaultState() {
-  return { prompts: DEFAULT_PROMPTS, histories: {}, modelOverrides: {} };
+  return { prompts: DEFAULT_PROMPTS.map((prompt) => ({ ...prompt })), histories: {}, modelOverrides: {} };
+}
+
+function mergeDefaultPrompts(prompts) {
+  const existing = Array.isArray(prompts) ? prompts : [];
+  const ids = new Set(existing.map((prompt) => prompt?.id));
+  return [...existing, ...DEFAULT_PROMPTS.filter((prompt) => !ids.has(prompt.id)).map((prompt) => ({ ...prompt }))];
 }
 
 function safeReadState() {
   try {
     const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
     return {
-      prompts: Array.isArray(parsed.prompts) ? parsed.prompts : DEFAULT_PROMPTS,
+      prompts: mergeDefaultPrompts(parsed.prompts),
       histories: parsed.histories && typeof parsed.histories === 'object' ? parsed.histories : {},
       modelOverrides: parsed.modelOverrides && typeof parsed.modelOverrides === 'object' ? parsed.modelOverrides : {},
     };
@@ -98,7 +119,7 @@ async function readDatabase(dbPath) {
   return new sqlJs.Database(bytes);
 }
 
-async function extractProviders() {
+async function extractProviders(includeSecrets = false) {
   const dbPath = ccswitchDbPath();
   if (!fs.existsSync(dbPath)) throw new Error(`找不到 CCSwitch 数据库：${dbPath}`);
   const db = await readDatabase(dbPath);
@@ -116,11 +137,34 @@ async function extractProviders() {
       id, providerKey: providerKey(appType, id), appType, group, name: name || id, baseUrl: parsed.baseUrl, websiteUrl: websiteUrl || '',
       model: providerDefaultModel, defaultModel: providerDefaultModel, configuredModel: parsed.configuredModel || '', protocol: parsed.protocol, keyHint: maskKey(parsed.key), hasKey: Boolean(parsed.key),
       supported, unavailableReason: category === 'official' ? '官方配置没有可读取的自定义 key' : !parsed.key ? '缺少 key' : !parsed.baseUrl ? '缺少服务地址' : '',
+      ...(includeSecrets ? { key: parsed.key, keyKind: parsed.keyKind || '' } : {}),
     };
   });
   const { state } = migrateProviderState(safeReadState(), providers);
   for (const provider of providers) provider.model = state.modelOverrides[provider.providerKey] || provider.defaultModel;
   return providers;
+}
+
+async function exportProviders() {
+  if (exporting) throw new Error('供应商配置正在导出');
+  exporting = true;
+  try {
+    const providers = await extractProviders(true);
+    const payload = buildMobileExport(providers);
+    if (!payload.providers.length) throw new Error('没有可导出的供应商，请确认配置包含服务地址和 API Key');
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '导出移动端供应商配置',
+      defaultPath: path.join(app.getPath('documents'), 'ccswitch-providers.json'),
+      filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { canceled: true, count: 0, skippedCount: payload.skippedCount };
+
+    await fsp.writeFile(result.filePath, JSON.stringify(payload, null, 2), 'utf8');
+    return { canceled: false, count: payload.providers.length, skippedCount: payload.skippedCount, filePath: result.filePath };
+  } finally {
+    exporting = false;
+  }
 }
 
 async function getProviderSecrets(key) {
@@ -188,6 +232,7 @@ async function runTests(providerKeys) {
 function setupIpc() {
   ipcMain.handle('get-version', () => app.getVersion());
   ipcMain.handle('load-providers', () => extractProviders());
+  ipcMain.handle('export-providers', () => exportProviders());
   ipcMain.handle('load-state', async () => {
     const providers = await extractProviders();
     const migrated = migrateProviderState(safeReadState(), providers);
@@ -278,6 +323,13 @@ else {
     Menu.setApplicationMenu(null);
     statePath = path.join(app.getPath('userData'), 'state.json');
     if (!fs.existsSync(statePath)) await saveState(defaultState());
+    else {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+        const merged = safeReadState();
+        if (!Array.isArray(parsed.prompts) || merged.prompts.length !== parsed.prompts.length) await saveState(merged);
+      } catch { /* Keep a damaged state file for recovery instead of overwriting it. */ }
+    }
     setupIpc();
     createWindow();
     createTray();

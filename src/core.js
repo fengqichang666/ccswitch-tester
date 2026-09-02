@@ -170,6 +170,26 @@ function responseText(payload) {
   return '';
 }
 
+function buildMobileExport(providers, exportedAt = new Date().toISOString()) {
+  const exportable = (providers || []).filter((provider) => provider.supported);
+  return {
+    version: 1,
+    exportedAt,
+    providers: exportable.map((provider) => ({
+      id: provider.providerKey,
+      name: provider.name,
+      type: provider.group,
+      baseUrl: provider.baseUrl,
+      apiKey: provider.key,
+      authType: provider.group === 'claude' && provider.keyKind === 'api-key' ? 'api-key' : 'bearer',
+      protocol: provider.protocol,
+      model: provider.model,
+      websiteUrl: provider.websiteUrl || '',
+    })),
+    skippedCount: (providers || []).length - exportable.length,
+  };
+}
+
 function buildRequest(provider, model, prompt) {
   const headers = { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'CCSwitch-Tester' };
   let endpoint;
@@ -205,6 +225,7 @@ function buildRequest(provider, model, prompt) {
 
 module.exports = {
   buildRequest,
+  buildMobileExport,
   classifyError,
   defaultModel,
   endpointFor,

@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   buildRequest,
+  buildMobileExport,
   classifyError,
   defaultModel,
   endpointFor,
@@ -66,6 +67,21 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
   assert.equal(codex.headers['session-id'], codex.headers['thread-id']);
   assert.equal(codex.headers['thread-id'], codex.headers['x-client-request-id']);
   assert.equal(codex.body.max_output_tokens, 64);
+});
+
+test('builds the mobile provider export format', () => {
+  const payload = buildMobileExport([
+    { id: 'claude-1', providerKey: 'claude:claude-1', name: 'Claude', group: 'claude', baseUrl: 'https://example.com/v1', key: 'secret', keyKind: 'api-key', protocol: 'anthropic-messages', model: 'claude-opus-5', websiteUrl: 'https://example.com', supported: true },
+    { id: 'codex-1', providerKey: 'codex:codex-1', name: 'Codex', group: 'codex', baseUrl: '', key: '', protocol: 'openai-responses', model: 'gpt-5.6-sol', supported: false, unavailableReason: '缺少服务地址' },
+  ], '2026-08-27T00:00:00.000Z');
+  assert.deepEqual(payload, {
+    version: 1,
+    exportedAt: '2026-08-27T00:00:00.000Z',
+    providers: [
+      { id: 'claude:claude-1', name: 'Claude', type: 'claude', baseUrl: 'https://example.com/v1', apiKey: 'secret', authType: 'api-key', protocol: 'anthropic-messages', model: 'claude-opus-5', websiteUrl: 'https://example.com' },
+    ],
+    skippedCount: 1,
+  });
 });
 
 test('reports underlying transport errors instead of plain fetch failed', () => {

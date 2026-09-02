@@ -9,6 +9,7 @@ const app = {
   pendingDeletePromptId: '',
   searchQueries: { claude: '', codex: '' },
   running: false,
+  exporting: false,
   syncPlan: [],
   syncLoaded: false,
   syncSelected: new Set(),
@@ -46,6 +47,8 @@ function renderCounts() {
   $('#run-button').disabled = app.running || count === 0;
   $('#run-button').textContent = app.running ? '⏳ 测试进行中' : '▶ 测试选中项';
   $('#refresh-button').disabled = app.running;
+  $('#export-button').disabled = app.running || app.exporting;
+  $('#export-button').textContent = app.exporting ? '⏳ 导出中' : '⇩ 导出 JSON';
   $('#prompt-button').disabled = app.running;
   document.querySelectorAll('.tab').forEach((item) => { item.disabled = app.running; });
   const visibleSupported = visibleProviders().filter((item) => item.supported);
@@ -156,6 +159,30 @@ async function loadAll() {
 }
 
 async function persistState() { app.state = await window.ccswitch.saveState(app.state); }
+
+async function exportProviders() {
+  if (app.running || app.exporting) return;
+  if (!app.providers.length) {
+    setNotice('暂无可导出的供应商，请先刷新配置。');
+    return;
+  }
+  if (!window.confirm('导出的 JSON 包含明文 API Key，请妥善保管并仅导入到你自己的设备。继续导出吗？')) return;
+
+  app.exporting = true;
+  renderCounts();
+  try {
+    const result = await window.ccswitch.exportProviders();
+    if (!result?.canceled) {
+      const skipped = result.skippedCount ? `，跳过 ${result.skippedCount} 个不可测试配置` : '';
+      setNotice(`已导出 ${result.count} 个供应商${skipped}：${result.filePath}`);
+    }
+  } catch (error) {
+    setNotice(error?.message || String(error));
+  } finally {
+    app.exporting = false;
+    renderCounts();
+  }
+}
 
 function openPromptModal() { renderPrompts(); $('#prompt-modal').hidden = false; $('#prompt-name').focus(); }
 function closePromptModal() { $('#prompt-modal').hidden = true; app.pendingDeletePromptId = ''; resetPromptForm(); }
@@ -347,6 +374,7 @@ document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
   if (tab) { if (app.running) return; app.group = tab.dataset.group; document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab)); renderProviders(); return; }
   if (event.target.closest('#refresh-button')) { await loadAll(); return; }
+  if (event.target.closest('#export-button')) { await exportProviders(); return; }
   if (event.target.closest('#sync-button')) { openSyncModal(); return; }
   if (event.target.closest('#close-sync-button')) { closeSyncModal(); return; }
   if (event.target.closest('#sync-refresh-button')) { await loadSyncPreview(); return; }
