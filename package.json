@@ -1,6 +1,6 @@
 {
   "name": "ccswitch-tester",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Windows desktop tester for Claude and Codex providers configured in CC Switch",
   "author": "gale",
   "homepage": "https://github.com/fengqichang666/ccswitch-tester",
