@@ -26,11 +26,16 @@
       </header>
 
       <main class="content">
+        <section class="default-model-settings" aria-label="默认模型设置">
+          <label for="default-codex-model">Codex 默认模型</label>
+          <input id="default-codex-model" type="text" value="gpt-6.1-sol" autocomplete="off" />
+          <button id="save-default-codex-model" class="button secondary" type="button">保存</button>
+        </section>
         <div class="list-toolbar">
           <div class="list-controls">
             <nav class="tabs" aria-label="供应商类型">
-              <button class="tab active" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
-              <button class="tab" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
+              <button class="tab active" data-group="codex" type="button"><span class="tab-dot codex-dot"></span>Codex 供应商 <strong id="codex-count">0</strong></button>
+              <button class="tab" data-group="claude" type="button"><span class="tab-dot claude-dot"></span>Claude 供应商 <strong id="claude-count">0</strong></button>
             </nav>
             <label class="select-all"><input id="select-all" type="checkbox" />选择当前结果</label>
             <span id="selection-count" class="selection-count">未选择供应商</span>

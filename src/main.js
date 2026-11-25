@@ -56,7 +56,7 @@ function ccswitchDbPath() {
 }
 
 function defaultState() {
-  return { prompts: DEFAULT_PROMPTS.map((prompt) => ({ ...prompt })), histories: {}, modelOverrides: {} };
+  return { prompts: DEFAULT_PROMPTS.map((prompt) => ({ ...prompt })), histories: {}, modelOverrides: {}, defaultCodexModel: defaultModel('codex') };
 }
 
 function mergeDefaultPrompts(prompts) {
@@ -72,6 +72,7 @@ function safeReadState() {
       prompts: mergeDefaultPrompts(parsed.prompts),
       histories: parsed.histories && typeof parsed.histories === 'object' ? parsed.histories : {},
       modelOverrides: parsed.modelOverrides && typeof parsed.modelOverrides === 'object' ? parsed.modelOverrides : {},
+      defaultCodexModel: typeof parsed.defaultCodexModel === 'string' && parsed.defaultCodexModel.trim() ? parsed.defaultCodexModel.trim() : defaultModel('codex'),
     };
   } catch {
     return defaultState();
@@ -83,6 +84,7 @@ async function saveState(next) {
     prompts: Array.isArray(next.prompts) ? next.prompts : [],
     histories: next.histories && typeof next.histories === 'object' ? next.histories : {},
     modelOverrides: next.modelOverrides && typeof next.modelOverrides === 'object' ? next.modelOverrides : {},
+    defaultCodexModel: typeof next.defaultCodexModel === 'string' && next.defaultCodexModel.trim() ? next.defaultCodexModel.trim() : defaultModel('codex'),
   };
   const tmpPath = `${statePath}.tmp`;
   const serialized = JSON.stringify(clean, null, 2);
@@ -126,12 +128,13 @@ async function extractProviders(includeSecrets = false) {
   const result = db.exec('SELECT id, app_type, name, settings_config, website_url, category, meta FROM providers WHERE app_type IN (\'claude\', \'claude-desktop\', \'codex\') ORDER BY app_type, sort_index, name');
   db.close();
   const rows = result[0]?.values || [];
+  const savedState = safeReadState();
   const providers = rows.map(([id, appType, name, settingsConfig, websiteUrl, category, metaText]) => {
     const settings = parseJson(settingsConfig);
     const meta = parseJson(metaText);
     const parsed = appType === 'codex' ? parseCodex(settings) : parseClaude(settings, meta, appType);
     const group = appType === 'codex' ? 'codex' : 'claude';
-    const providerDefaultModel = defaultModel(group);
+    const providerDefaultModel = defaultModel(group, savedState.defaultCodexModel);
     const supported = Boolean(parsed.key && parsed.baseUrl && category !== 'official');
     return {
       id, providerKey: providerKey(appType, id), appType, group, name: name || id, baseUrl: parsed.baseUrl, websiteUrl: websiteUrl || '',
@@ -140,7 +143,7 @@ async function extractProviders(includeSecrets = false) {
       ...(includeSecrets ? { key: parsed.key, keyKind: parsed.keyKind || '' } : {}),
     };
   });
-  const { state } = migrateProviderState(safeReadState(), providers);
+  const { state } = migrateProviderState(savedState, providers);
   for (const provider of providers) provider.model = state.modelOverrides[provider.providerKey] || provider.defaultModel;
   return providers;
 }
@@ -184,7 +187,7 @@ async function getProviderSecrets(key) {
   return { id: providerId, providerKey: providerKey(appType, providerId), appType, group: appType === 'codex' ? 'codex' : 'claude', name, websiteUrl, category, ...parsed };
 }
 
-async function runTests(providerKeys) {
+async function runTests(providerKeys, temporaryApiKeys = {}) {
   if (running) throw new Error('已有测试正在运行');
   const state = safeReadState();
   const prompts = state.prompts.filter((item) => item.enabled && item.text.trim());
@@ -201,7 +204,8 @@ async function runTests(providerKeys) {
         let result;
         try {
           provider = await getProviderSecrets(requestedKey);
-          const model = state.modelOverrides[provider.providerKey] || defaultModel(provider.group);
+          if (typeof temporaryApiKeys?.[requestedKey] === 'string') provider.key = temporaryApiKeys[requestedKey].trim();
+          const model = state.modelOverrides[provider.providerKey] || defaultModel(provider.group, state.defaultCodexModel);
           const endpoint = buildRequest(provider, model, prompt.text).endpoint;
           const proxy = await getProxyConfig(provider.group, endpoint);
           result = await requestProvider(provider, model, prompt.text, { proxyUrl: proxy.proxyUrl, proxyLabel: proxy.label });
@@ -231,7 +235,7 @@ async function runTests(providerKeys) {
 
 function setupIpc() {
   ipcMain.handle('get-version', () => app.getVersion());
-  ipcMain.handle('load-providers', () => extractProviders());
+  ipcMain.handle('load-providers', () => extractProviders(true));
   ipcMain.handle('export-providers', () => exportProviders());
   ipcMain.handle('load-state', async () => {
     const providers = await extractProviders();
@@ -240,7 +244,7 @@ function setupIpc() {
     return migrated.state;
   });
   ipcMain.handle('save-state', (_event, next) => saveState(next));
-  ipcMain.handle('run-tests', (_event, ids) => runTests(Array.isArray(ids) ? ids : []));
+  ipcMain.handle('run-tests', (_event, ids, temporaryApiKeys) => runTests(Array.isArray(ids) ? ids : [], temporaryApiKeys));
   ipcMain.handle('sync-preview', () => previewSync({ dbPath: ccswitchDbPath() }));
   ipcMain.handle('sync-desktop', (_event, ids) => syncToDesktop(Array.isArray(ids) ? ids : [], { dbPath: ccswitchDbPath() }));
   ipcMain.handle('show-error', (_event, message) => dialog.showErrorBox('CCSwitch Tester', String(message)));

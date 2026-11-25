@@ -1,7 +1,7 @@
 const app = {
   providers: [],
-  state: { prompts: [], histories: {}, modelOverrides: {} },
-  group: 'claude',
+  state: { prompts: [], histories: {}, modelOverrides: {}, defaultCodexModel: 'gpt-6.1-sol' },
+  group: 'codex',
   selected: new Set(),
   pending: new Set(),
   runTotal: 0,
@@ -59,6 +59,8 @@ function renderCounts() {
   selectAll.disabled = app.running || visibleSupported.length === 0;
   $('#provider-search').disabled = app.running;
   $('#sync-button').disabled = app.running;
+  $('#default-codex-model').disabled = app.running;
+  $('#save-default-codex-model').disabled = app.running;
 }
 
 const APP_TYPE_LABELS = { codex: 'Codex', 'claude-desktop': 'Claude Desktop', claude: 'Claude Code' };
@@ -100,6 +102,7 @@ function renderProviderCard(provider) {
   const latest = history[0];
   const selected = app.selected.has(provider.providerKey);
   const disabled = !provider.supported;
+  const canTestWithTemporaryKey = Boolean(provider.baseUrl) && provider.unavailableReason !== '官方配置没有可读取的自定义 key';
   const pending = app.pending.has(provider.providerKey);
   const status = pending ? 'pending' : latest ? (latest.ok ? 'ok' : 'error') : 'none';
   const statusText = pending ? '测试中' : latest ? (latest.ok ? '最近一次成功' : '最近一次失败') : '未测试';
@@ -110,9 +113,10 @@ function renderProviderCard(provider) {
         <div class="name-line"><strong title="${escapeHtml(provider.name)}">${escapeHtml(provider.name)}</strong><span class="pill ${provider.group}">${escapeHtml(appTypeLabel(provider))}</span></div>
       </div>
       <div class="endpoint"><code title="${escapeHtml(provider.baseUrl || '未配置')}">${escapeHtml(provider.baseUrl || '未配置')}</code></div>
+      <div class="api-key-cell"><input class="api-key-field" data-provider-key="${escapeHtml(provider.providerKey)}" type="text" value="${escapeHtml(provider.key || '')}" placeholder="未配置" aria-label="${escapeHtml(provider.name)} 的 API Key" ${!canTestWithTemporaryKey || app.running ? 'disabled' : ''} /></div>
       <input class="model-field" data-model-key="${escapeHtml(provider.providerKey)}" value="${escapeHtml(provider.model)}" aria-label="${escapeHtml(provider.name)} 的模型" ${disabled || app.running ? 'disabled' : ''} />
       <div class="last-tested" title="${latest ? escapeHtml(formatTime(latest.testedAt)) : '尚未测试'}"><span>最近测试</span><time>${latest ? escapeHtml(formatTime(latest.testedAt)) : '未测试'}</time></div>
-      <div class="row-actions"><span class="status ${status}">${statusText}</span><button class="button compact primary row-test-button" data-test-key="${escapeHtml(provider.providerKey)}" type="button" ${disabled || app.running ? 'disabled' : ''}>测试</button><button class="button compact secondary history-button" data-history-key="${escapeHtml(provider.providerKey)}" type="button">历史 ${history.length}</button></div>
+      <div class="row-actions"><span class="status ${status}">${statusText}</span><button class="button compact primary row-test-button" data-test-key="${escapeHtml(provider.providerKey)}" type="button" ${!canTestWithTemporaryKey || app.running ? 'disabled' : ''}>测试</button><button class="button compact secondary history-button" data-history-key="${escapeHtml(provider.providerKey)}" type="button">历史 ${history.length}</button></div>
     </div>
   </article>`;
 }
@@ -144,6 +148,7 @@ function refreshSyncLabel() { $('#last-sync').textContent = `已读取 · ${new 
 async function loadAll() {
   try {
     app.state = await window.ccswitch.loadState();
+    $('#default-codex-model').value = app.state.defaultCodexModel || 'gpt-6.1-sol';
     app.providers = await window.ccswitch.loadProviders();
     const validKeys = new Set(app.providers.filter((item) => item.supported).map((item) => item.providerKey));
     app.selected = new Set([...app.selected].filter((key) => validKeys.has(key)));
@@ -212,9 +217,13 @@ async function handlePromptSubmit(event) {
   resetPromptForm();
 }
 
-async function runProviderIds(requestedIds) {
-  const current = new Map(currentProviders().filter((item) => item.supported).map((item) => [item.providerKey, item]));
-  const keys = requestedIds.filter((key) => current.has(key));
+async function runProviderIds(requestedIds, temporaryApiKeys = {}) {
+  const current = new Map(currentProviders().map((item) => [item.providerKey, item]));
+  const keys = requestedIds.filter((key) => {
+    const provider = current.get(key);
+    const temporaryApiKey = temporaryApiKeys[key];
+    return provider?.supported || (provider?.baseUrl && provider.unavailableReason !== '官方配置没有可读取的自定义 key' && typeof temporaryApiKey === 'string' && temporaryApiKey.trim());
+  });
   if (!keys.length || app.running) return;
   if (!app.state.prompts.some((item) => item.enabled && item.text.trim())) {
     setNotice('请先在“语句管理”中启用至少一条测试语句。');
@@ -228,7 +237,7 @@ async function runProviderIds(requestedIds) {
   renderProviders();
   try {
     await persistState();
-    await window.ccswitch.runTests(keys);
+    await window.ccswitch.runTests(keys, temporaryApiKeys);
     app.state = await window.ccswitch.loadState();
   } catch (error) {
     setNotice(error?.message || String(error));
@@ -374,6 +383,19 @@ document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
   if (tab) { if (app.running) return; app.group = tab.dataset.group; document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab)); renderProviders(); return; }
   if (event.target.closest('#refresh-button')) { await loadAll(); return; }
+  if (event.target.closest('#save-default-codex-model')) {
+    if (app.running) return;
+    const model = $('#default-codex-model').value.trim();
+    if (!model) { setNotice('Codex 默认模型不能为空。'); return; }
+    app.state.defaultCodexModel = model;
+    try {
+      await persistState();
+      app.providers = await window.ccswitch.loadProviders();
+      setNotice('Codex 默认模型已保存。');
+      renderProviders();
+    } catch (error) { setNotice(error?.message || String(error)); }
+    return;
+  }
   if (event.target.closest('#export-button')) { await exportProviders(); return; }
   if (event.target.closest('#sync-button')) { openSyncModal(); return; }
   if (event.target.closest('#close-sync-button')) { closeSyncModal(); return; }
@@ -385,7 +407,15 @@ document.addEventListener('click', async (event) => {
   if (event.target.closest('#cancel-prompt-button')) { resetPromptForm(); return; }
   if (event.target.closest('#run-button')) { await runSelected(); return; }
   const rowTestButton = event.target.closest('.row-test-button');
-  if (rowTestButton) { await runProviderIds([rowTestButton.dataset.testKey]); return; }
+  if (rowTestButton) {
+    const key = rowTestButton.dataset.testKey;
+    const keyField = [...document.querySelectorAll('.api-key-field')].find((item) => item.dataset.providerKey === key);
+    const temporaryApiKey = keyField?.value ?? '';
+    const provider = app.providers.find((item) => item.providerKey === key);
+    if (!provider?.supported && !temporaryApiKey.trim()) { setNotice('请填写临时 API Key 后再测试。'); return; }
+    await runProviderIds([key], { [key]: temporaryApiKey });
+    return;
+  }
   const historyButton = event.target.closest('.history-button');
   if (historyButton) { openHistoryModal(historyButton.dataset.historyKey); return; }
   const editButton = event.target.closest('.edit-prompt');

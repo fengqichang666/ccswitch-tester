@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('ccswitch', {
   exportProviders: () => ipcRenderer.invoke('export-providers'),
   loadState: () => ipcRenderer.invoke('load-state'),
   saveState: (state) => ipcRenderer.invoke('save-state', state),
-  runTests: (providerKeys) => ipcRenderer.invoke('run-tests', providerKeys),
+  runTests: (providerKeys, temporaryApiKeys) => ipcRenderer.invoke('run-tests', providerKeys, temporaryApiKeys),
   syncPreview: () => ipcRenderer.invoke('sync-preview'),
   syncToDesktop: (providerIds) => ipcRenderer.invoke('sync-desktop', providerIds),
   onTestProgress: (callback) => {

@@ -9,12 +9,13 @@ let state = {
     'claude:shared': [{ id: 'history-1', testedAt: '2026-08-17T00:00:00.000Z', model: 'claude-opus-5', promptName: '语句一', ok: false, status: 0, elapsedMs: 15, errorCategory: 'DNS 解析失败', error: 'ENOTFOUND', networkPath: '直连' }],
   },
   modelOverrides: {},
+  defaultCodexModel: 'gpt-6.1-sol',
 };
 const testRuns = [];
 const providers = [
-  { id: 'shared', providerKey: 'claude:shared', appType: 'claude', group: 'claude', name: 'Claude 测试供应商', baseUrl: 'https://claude.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', keyHint: 'sk-a...test', hasKey: true, supported: true, unavailableReason: '' },
-  { id: 'claude-2', providerKey: 'claude:claude-2', appType: 'claude', group: 'claude', name: '另一个 Claude', baseUrl: 'https://other.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', keyHint: 'sk-c...test', hasKey: true, supported: true, unavailableReason: '' },
-  { id: 'shared', providerKey: 'codex:shared', appType: 'codex', group: 'codex', name: 'Codex 测试供应商', baseUrl: 'https://codex.example/v1', model: 'gpt-5.6-sol', defaultModel: 'gpt-5.6-sol', configuredModel: '', protocol: 'openai-responses', keyHint: 'sk-b...test', hasKey: true, supported: true, unavailableReason: '' },
+  { id: 'shared', providerKey: 'claude:shared', appType: 'claude', group: 'claude', name: 'Claude 测试供应商', baseUrl: 'https://claude.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', key: 'sk-a-test', keyHint: 'sk-a...test', hasKey: true, supported: true, unavailableReason: '' },
+  { id: 'claude-2', providerKey: 'claude:claude-2', appType: 'claude', group: 'claude', name: '另一个 Claude', baseUrl: 'https://other.example/v1', model: 'claude-opus-5', defaultModel: 'claude-opus-5', configuredModel: '', protocol: 'anthropic-messages', key: 'sk-c-test', keyHint: 'sk-c...test', hasKey: true, supported: true, unavailableReason: '' },
+  { id: 'shared', providerKey: 'codex:shared', appType: 'codex', group: 'codex', name: 'Codex 测试供应商', baseUrl: 'https://codex.example/v1', model: 'gpt-6.1-sol', defaultModel: 'gpt-6.1-sol', configuredModel: '', protocol: 'openai-responses', key: 'sk-b-test', keyHint: 'sk-b...test', hasKey: true, supported: true, unavailableReason: '' },
 ];
 
 const syncPlan = [

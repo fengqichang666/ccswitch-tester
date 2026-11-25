@@ -45,7 +45,8 @@ test('normalizes endpoint paths without duplicating v1', () => {
 });
 
 test('uses user-approved default model ids', () => {
-  assert.equal(defaultModel('codex'), 'gpt-5.6-sol');
+  assert.equal(defaultModel('codex'), 'gpt-6.1-sol');
+  assert.equal(defaultModel('codex', 'custom-codex-model'), 'custom-codex-model');
   assert.equal(defaultModel('claude'), 'claude-opus-5');
 });
 
@@ -59,7 +60,7 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
   assert.match(claude.headers['x-claude-code-session-id'], /^[0-9a-f-]{36}$/i);
   assert.equal(claude.body.max_tokens, 64);
 
-  const codex = buildRequest({ group: 'codex', protocol: 'openai-responses', baseUrl: 'https://example.com/v1', key: 'b' }, 'gpt-5.6-sol', 'hello');
+  const codex = buildRequest({ group: 'codex', protocol: 'openai-responses', baseUrl: 'https://example.com/v1', key: 'b' }, 'gpt-6.1-sol', 'hello');
   assert.equal(codex.endpoint, 'https://example.com/v1/responses');
   assert.equal(codex.headers.authorization, 'Bearer b');
   assert.match(codex.headers['user-agent'], /^codex_cli_rs\//);
@@ -72,7 +73,7 @@ test('builds Anthropic and OpenAI requests with the expected auth', () => {
 test('builds the mobile provider export format', () => {
   const payload = buildMobileExport([
     { id: 'claude-1', providerKey: 'claude:claude-1', name: 'Claude', group: 'claude', baseUrl: 'https://example.com/v1', key: 'secret', keyKind: 'api-key', protocol: 'anthropic-messages', model: 'claude-opus-5', websiteUrl: 'https://example.com', supported: true },
-    { id: 'codex-1', providerKey: 'codex:codex-1', name: 'Codex', group: 'codex', baseUrl: '', key: '', protocol: 'openai-responses', model: 'gpt-5.6-sol', supported: false, unavailableReason: '缺少服务地址' },
+    { id: 'codex-1', providerKey: 'codex:codex-1', name: 'Codex', group: 'codex', baseUrl: '', key: '', protocol: 'openai-responses', model: 'gpt-6.1-sol', supported: false, unavailableReason: '缺少服务地址' },
   ], '2026-08-27T00:00:00.000Z');
   assert.deepEqual(payload, {
     version: 1,
@@ -122,6 +123,7 @@ test('migrates legacy provider state only when the id is unambiguous', () => {
   ];
   const migrated = migrateProviderState(legacy, providers);
   assert.equal(migrated.changed, true);
+  assert.equal(migrated.state.defaultCodexModel, 'gpt-6.1-sol');
   assert.deepEqual(migrated.state.histories['claude:unique'], [{ id: 'history' }]);
   assert.equal(migrated.state.modelOverrides['claude:unique'], 'custom-model');
   assert.deepEqual(migrated.state.histories.shared, [{ id: 'ambiguous' }]);
