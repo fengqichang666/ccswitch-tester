@@ -56,7 +56,7 @@ function ccswitchDbPath() {
 }
 
 function defaultState() {
-  return { prompts: DEFAULT_PROMPTS.map((prompt) => ({ ...prompt })), histories: {}, modelOverrides: {}, defaultCodexModel: defaultModel('codex') };
+  return { prompts: DEFAULT_PROMPTS.map((prompt) => ({ ...prompt })), histories: {}, modelOverrides: {}, defaultCodexModel: defaultModel('codex'), defaultClaudeModel: defaultModel('claude') };
 }
 
 function mergeDefaultPrompts(prompts) {
@@ -73,6 +73,7 @@ function safeReadState() {
       histories: parsed.histories && typeof parsed.histories === 'object' ? parsed.histories : {},
       modelOverrides: parsed.modelOverrides && typeof parsed.modelOverrides === 'object' ? parsed.modelOverrides : {},
       defaultCodexModel: typeof parsed.defaultCodexModel === 'string' && parsed.defaultCodexModel.trim() ? parsed.defaultCodexModel.trim() : defaultModel('codex'),
+      defaultClaudeModel: typeof parsed.defaultClaudeModel === 'string' && parsed.defaultClaudeModel.trim() ? parsed.defaultClaudeModel.trim() : defaultModel('claude'),
     };
   } catch {
     return defaultState();
@@ -85,6 +86,7 @@ async function saveState(next) {
     histories: next.histories && typeof next.histories === 'object' ? next.histories : {},
     modelOverrides: next.modelOverrides && typeof next.modelOverrides === 'object' ? next.modelOverrides : {},
     defaultCodexModel: typeof next.defaultCodexModel === 'string' && next.defaultCodexModel.trim() ? next.defaultCodexModel.trim() : defaultModel('codex'),
+    defaultClaudeModel: typeof next.defaultClaudeModel === 'string' && next.defaultClaudeModel.trim() ? next.defaultClaudeModel.trim() : defaultModel('claude'),
   };
   const tmpPath = `${statePath}.tmp`;
   const serialized = JSON.stringify(clean, null, 2);
@@ -134,7 +136,7 @@ async function extractProviders(includeSecrets = false) {
     const meta = parseJson(metaText);
     const parsed = appType === 'codex' ? parseCodex(settings) : parseClaude(settings, meta, appType);
     const group = appType === 'codex' ? 'codex' : 'claude';
-    const providerDefaultModel = defaultModel(group, savedState.defaultCodexModel);
+    const providerDefaultModel = defaultModel(group, savedState.defaultCodexModel, savedState.defaultClaudeModel);
     const supported = Boolean(parsed.key && parsed.baseUrl && category !== 'official');
     return {
       id, providerKey: providerKey(appType, id), appType, group, name: name || id, baseUrl: parsed.baseUrl, websiteUrl: websiteUrl || '',
@@ -205,7 +207,7 @@ async function runTests(providerKeys, temporaryApiKeys = {}) {
         try {
           provider = await getProviderSecrets(requestedKey);
           if (typeof temporaryApiKeys?.[requestedKey] === 'string') provider.key = temporaryApiKeys[requestedKey].trim();
-          const model = state.modelOverrides[provider.providerKey] || defaultModel(provider.group, state.defaultCodexModel);
+          const model = state.modelOverrides[provider.providerKey] || defaultModel(provider.group, state.defaultCodexModel, state.defaultClaudeModel);
           const endpoint = buildRequest(provider, model, prompt.text).endpoint;
           const proxy = await getProxyConfig(provider.group, endpoint);
           result = await requestProvider(provider, model, prompt.text, { proxyUrl: proxy.proxyUrl, proxyLabel: proxy.label });

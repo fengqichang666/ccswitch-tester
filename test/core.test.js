@@ -48,6 +48,7 @@ test('uses user-approved default model ids', () => {
   assert.equal(defaultModel('codex'), 'gpt-6.1-sol');
   assert.equal(defaultModel('codex', 'custom-codex-model'), 'custom-codex-model');
   assert.equal(defaultModel('claude'), 'claude-opus-5');
+  assert.equal(defaultModel('claude', 'gpt-6.1-sol', 'custom-claude-model'), 'custom-claude-model');
 });
 
 test('builds Anthropic and OpenAI requests with the expected auth', () => {
@@ -124,6 +125,7 @@ test('migrates legacy provider state only when the id is unambiguous', () => {
   const migrated = migrateProviderState(legacy, providers);
   assert.equal(migrated.changed, true);
   assert.equal(migrated.state.defaultCodexModel, 'gpt-6.1-sol');
+  assert.equal(migrated.state.defaultClaudeModel, 'claude-opus-5');
   assert.deepEqual(migrated.state.histories['claude:unique'], [{ id: 'history' }]);
   assert.equal(migrated.state.modelOverrides['claude:unique'], 'custom-model');
   assert.deepEqual(migrated.state.histories.shared, [{ id: 'ambiguous' }]);

@@ -34,7 +34,8 @@ button { cursor: pointer; }
 .top-actions { gap: 12px; }
 .sync-label { color: var(--muted); font-size: 12px; }
 .content { width: min(1400px, calc(100% - 48px)); margin: 0 auto; padding: 24px 0 48px; }
-.default-model-settings { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--muted); font-size: 12px; }
+.model-settings { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 14px; }
+.default-model-settings { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
 .default-model-settings input { width: 220px; padding: 8px 9px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; outline: 0; }
 .default-model-settings input:focus { border-color: #95b3eb; box-shadow: 0 0 0 3px var(--accent-soft); }
 .eyebrow { margin: 0 0 7px; color: var(--accent); font-size: 11px; font-weight: 750; letter-spacing: 0; }

@@ -32,6 +32,7 @@ function migrateProviderState(state, providers) {
     histories: { ...(state?.histories || {}) },
     modelOverrides: { ...(state?.modelOverrides || {}) },
     defaultCodexModel: typeof state?.defaultCodexModel === 'string' && state.defaultCodexModel.trim() ? state.defaultCodexModel.trim() : defaultModel('codex'),
+    defaultClaudeModel: typeof state?.defaultClaudeModel === 'string' && state.defaultClaudeModel.trim() ? state.defaultClaudeModel.trim() : defaultModel('claude'),
   };
   const counts = new Map();
   for (const provider of providers || []) counts.set(provider.id, (counts.get(provider.id) || 0) + 1);
@@ -100,8 +101,8 @@ function parseClaude(settings, meta, appType) {
   };
 }
 
-function defaultModel(group, codexDefault = 'gpt-6.1-sol') {
-  return group === 'codex' ? codexDefault : 'claude-opus-5';
+function defaultModel(group, codexDefault = 'gpt-6.1-sol', claudeDefault = 'claude-opus-5') {
+  return group === 'codex' ? codexDefault : claudeDefault;
 }
 
 function maskKey(key) {

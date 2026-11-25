@@ -1,6 +1,6 @@
 const app = {
   providers: [],
-  state: { prompts: [], histories: {}, modelOverrides: {}, defaultCodexModel: 'gpt-6.1-sol' },
+  state: { prompts: [], histories: {}, modelOverrides: {}, defaultCodexModel: 'gpt-6.1-sol', defaultClaudeModel: 'claude-opus-5' },
   group: 'codex',
   selected: new Set(),
   pending: new Set(),
@@ -59,8 +59,7 @@ function renderCounts() {
   selectAll.disabled = app.running || visibleSupported.length === 0;
   $('#provider-search').disabled = app.running;
   $('#sync-button').disabled = app.running;
-  $('#default-codex-model').disabled = app.running;
-  $('#save-default-codex-model').disabled = app.running;
+  document.querySelectorAll('.default-model-input, .save-default-model').forEach((item) => { item.disabled = app.running; });
 }
 
 const APP_TYPE_LABELS = { codex: 'Codex', 'claude-desktop': 'Claude Desktop', claude: 'Claude Code' };
@@ -149,6 +148,7 @@ async function loadAll() {
   try {
     app.state = await window.ccswitch.loadState();
     $('#default-codex-model').value = app.state.defaultCodexModel || 'gpt-6.1-sol';
+    $('#default-claude-model').value = app.state.defaultClaudeModel || 'claude-opus-5';
     app.providers = await window.ccswitch.loadProviders();
     const validKeys = new Set(app.providers.filter((item) => item.supported).map((item) => item.providerKey));
     app.selected = new Set([...app.selected].filter((key) => validKeys.has(key)));
@@ -164,6 +164,21 @@ async function loadAll() {
 }
 
 async function persistState() { app.state = await window.ccswitch.saveState(app.state); }
+
+async function saveDefaultModel(group) {
+  if (app.running) return;
+  const model = $(`#default-${group}-model`).value.trim();
+  const stateKey = group === 'codex' ? 'defaultCodexModel' : 'defaultClaudeModel';
+  const label = group === 'codex' ? 'Codex' : 'Claude';
+  if (!model) { setNotice(`${label} 默认模型不能为空。`); return; }
+  app.state[stateKey] = model;
+  try {
+    await persistState();
+    app.providers = await window.ccswitch.loadProviders();
+    setNotice(`${label} 默认模型已保存。`);
+    renderProviders();
+  } catch (error) { setNotice(error?.message || String(error)); }
+}
 
 async function exportProviders() {
   if (app.running || app.exporting) return;
@@ -383,17 +398,9 @@ document.addEventListener('click', async (event) => {
   const tab = event.target.closest('.tab');
   if (tab) { if (app.running) return; app.group = tab.dataset.group; document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab)); renderProviders(); return; }
   if (event.target.closest('#refresh-button')) { await loadAll(); return; }
-  if (event.target.closest('#save-default-codex-model')) {
-    if (app.running) return;
-    const model = $('#default-codex-model').value.trim();
-    if (!model) { setNotice('Codex 默认模型不能为空。'); return; }
-    app.state.defaultCodexModel = model;
-    try {
-      await persistState();
-      app.providers = await window.ccswitch.loadProviders();
-      setNotice('Codex 默认模型已保存。');
-      renderProviders();
-    } catch (error) { setNotice(error?.message || String(error)); }
+  const saveDefaultButton = event.target.closest('.save-default-model');
+  if (saveDefaultButton) {
+    await saveDefaultModel(saveDefaultButton.dataset.group);
     return;
   }
   if (event.target.closest('#export-button')) { await exportProviders(); return; }

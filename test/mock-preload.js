@@ -10,6 +10,7 @@ let state = {
   },
   modelOverrides: {},
   defaultCodexModel: 'gpt-6.1-sol',
+  defaultClaudeModel: 'claude-opus-5',
 };
 const testRuns = [];
 const providers = [

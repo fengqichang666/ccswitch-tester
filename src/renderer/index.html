@@ -26,10 +26,17 @@
       </header>
 
       <main class="content">
-        <section class="default-model-settings" aria-label="默认模型设置">
-          <label for="default-codex-model">Codex 默认模型</label>
-          <input id="default-codex-model" type="text" value="gpt-6.1-sol" autocomplete="off" />
-          <button id="save-default-codex-model" class="button secondary" type="button">保存</button>
+        <section class="model-settings" aria-label="默认模型设置">
+          <div class="default-model-settings">
+            <label for="default-codex-model">Codex 默认模型</label>
+            <input id="default-codex-model" class="default-model-input" type="text" value="gpt-6.1-sol" autocomplete="off" />
+            <button class="button secondary save-default-model" data-group="codex" type="button">保存</button>
+          </div>
+          <div class="default-model-settings">
+            <label for="default-claude-model">Claude 默认模型</label>
+            <input id="default-claude-model" class="default-model-input" type="text" value="claude-opus-5" autocomplete="off" />
+            <button class="button secondary save-default-model" data-group="claude" type="button">保存</button>
+          </div>
         </section>
         <div class="list-toolbar">
           <div class="list-controls">
